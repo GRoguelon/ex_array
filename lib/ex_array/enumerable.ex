@@ -16,9 +16,10 @@ defimpl Enumerable, for: ExArray do
     Enumerable.reduce(:array.to_list(c), acc, fun)
   end
 
-  @spec slice(ExArray.t()) :: {:ok, non_neg_integer(), Enumerable.slicing_fun()}
+  @spec slice(ExArray.t()) :: {:ok, size :: non_neg_integer(), Enumerable.to_list_fun()}
   def slice(%ExArray{content: c}) do
     size = :array.size(c)
-    {:ok, size, &Enumerable.List.slice(:array.to_list(c), &1, &2, size)}
+
+    {:ok, size, &ExArray.to_list/1}
   end
 end
