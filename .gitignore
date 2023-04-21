@@ -24,3 +24,7 @@ ex_array-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Ignore Dialyxir files
+/priv/plts/*.plt
+/priv/plts/*.plt.hash

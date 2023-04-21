@@ -9,6 +9,7 @@ defmodule ExArray.MixProject do
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       package: package(),
+      dialyzer: dialyzer(),
       deps: deps(),
       docs: docs(),
       description: "A wrapper module for Erlang's array.",
@@ -34,6 +35,12 @@ defmodule ExArray.MixProject do
     ]
   end
 
+  defp dialyzer do
+    [
+      plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
+    ]
+  end
+
   defp docs do
     [
       formatters: ["html"],
@@ -45,6 +52,7 @@ defmodule ExArray.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:dialyxir, "~> 1.3", only: [:dev], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
