@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.3 (2023-04-21)
+
+- Improved the README.md by providing examples
+
 ## v0.1.2 (2023-04-21)
 
 - Added tests to get full coverage
