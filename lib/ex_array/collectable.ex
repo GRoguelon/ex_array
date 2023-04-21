@@ -1,13 +1,19 @@
 defimpl Collectable, for: ExArray do
   @moduledoc false
-  @spec into(ExArray.t()) ::
-          {[], (list(), {:cont, term()} -> list()) | (list(), :done -> ExArray.t()) | (list(), :halt -> :ok)}
+
+  @spec into(@for.t()) :: {initial_acc :: term(), collector :: (term(), @protocol.command() -> @protocol.t() | term())}
   def into(original) do
-    {[],
-     fn
-       list, {:cont, x} -> [x | list]
-       list, :done -> ExArray.from_list(ExArray.to_list(original) ++ :lists.reverse(list))
-       _, :halt -> :ok
-     end}
+    collector = fn
+      list, {:cont, value} ->
+        [value | list]
+
+      list, :done ->
+        @for.from_list(@for.to_list(original) ++ :lists.reverse(list))
+
+      _list, :halt ->
+        :ok
+    end
+
+    {[], collector}
   end
 end
