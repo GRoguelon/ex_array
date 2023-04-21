@@ -3,15 +3,15 @@ defimpl Inspect, for: ExArray do
 
   import Inspect.Algebra
 
-  @spec inspect(ExArray.t(), Inspect.Opts.t()) :: Inspect.Algebra.t()
-  def inspect(arr, opts) do
+  @spec inspect(@for.t(), Inspect.Opts.t()) :: Inspect.Algebra.t()
+  def inspect(%@for{} = struct, opts) do
     concat([
       "#ExArray<",
-      to_doc(ExArray.to_list(arr), opts),
+      to_doc(@for.to_list(struct), opts),
       ", fixed=",
-      Atom.to_string(ExArray.is_fix(arr)),
+      Atom.to_string(@for.is_fix(struct)),
       ", default=",
-      inspect(ExArray.default(arr)),
+      inspect(@for.default(struct)),
       ">"
     ])
   end
