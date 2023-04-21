@@ -6,8 +6,12 @@ defmodule ExArray.MixProject do
       app: :ex_array,
       version: "0.1.0",
       elixir: "~> 1.14",
+      build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      package: package(),
+      deps: deps(),
+      description: "A wrapper module for Erlang's array.",
+      source_url: "https://github.com/groguelon/ex_array"
     ]
   end
 
@@ -15,6 +19,15 @@ defmodule ExArray.MixProject do
   def application do
     [
       extra_applications: [:logger]
+    ]
+  end
+
+  defp package() do
+    [
+      # These are the default files included in the package
+      files: ~w(lib priv .formatter.exs mix.exs README* readme* LICENSE*
+                license* CHANGELOG* changelog* src),
+      licenses: ["MIT"]
     ]
   end
 
