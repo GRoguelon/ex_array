@@ -156,6 +156,10 @@ defmodule ExArray do
     :array.is_array(arr)
   end
 
+  def is_array(_any) do
+    false
+  end
+
   @doc """
   Checks if the array has fixed size. Returns `true` if the array is fixed, otherwise `false`.
   """
@@ -215,8 +219,8 @@ defmodule ExArray do
   Check if two arrays are equal using ===.
   """
   @spec equal?(t(), t()) :: boolean()
-  def equal?(%__MODULE__{arr: arr1}, %__MODULE__{arr: arr2}) do
-    arr1 === arr2
+  def equal?(%__MODULE__{} = struct1, %__MODULE__{} = struct2) do
+    to_list(struct1) === to_list(struct2)
   end
 
   @doc """
@@ -268,11 +272,18 @@ defmodule ExArray do
   end
 
   @doc """
-  Converts the array to its underlying Erlang's array.
+  Converts an Erlang's array to an array.
+  All properties (size, elements, default value, fixedness) of the original array are preserved.
+
+  If `erl_array` is not an Erlang's array, the call raises `ArgumentError`.
   """
-  @spec to_erlang_array(t()) :: array()
-  def to_erlang_array(%__MODULE__{arr: arr}) do
-    arr
+  @spec from_erlang_array(array()) :: t()
+  def from_erlang_array(erl_array) do
+    unless :array.is_array(erl_array) do
+      raise ArgumentError
+    end
+
+    %__MODULE__{arr: erl_array}
   end
 
   @doc """
@@ -299,18 +310,11 @@ defmodule ExArray do
   end
 
   @doc """
-  Converts an Erlang's array to an array.
-  All properties (size, elements, default value, fixedness) of the original array are preserved.
-
-  If `erl_arr` is not an Erlang's array, the call raises `ArgumentError`.
+  Converts the array to its underlying Erlang's array.
   """
-  @spec from_erlang_array(array()) :: t()
-  def from_erlang_array(erl_arr) do
-    unless :array.is_array(erl_arr) do
-      raise ArgumentError
-    end
-
-    erl_arr
+  @spec to_erlang_array(t()) :: array()
+  def to_erlang_array(%__MODULE__{arr: arr}) do
+    arr
   end
 
   @doc """
@@ -379,17 +383,6 @@ defmodule ExArray do
   end
 
   @doc """
-  Folds the elements of the array right-to-left using the given function and initial accumulator value.
-  The elements are visited in order from the highest index to the lowest.
-
-  If `fun` is not a function, the call raises `ArgumentError`.
-  """
-  @spec foldr(t(), acc, (index(), value(), acc -> acc)) :: acc when acc: var
-  def foldr(%__MODULE__{arr: arr}, acc, fun) when is_function(fun, 3) do
-    :array.foldr(fun, acc, arr)
-  end
-
-  @doc """
   Folds the elements of the array using the given function and initial accumulator value,
   skipping default-valued entries.
   The elements are visited in order from the lowest index to the highest.
@@ -399,6 +392,17 @@ defmodule ExArray do
   @spec sparse_foldl(t(), acc, (index(), value(), acc -> acc)) :: acc when acc: var
   def sparse_foldl(%__MODULE__{arr: arr}, acc, fun) when is_function(fun, 3) do
     :array.sparse_foldl(fun, acc, arr)
+  end
+
+  @doc """
+  Folds the elements of the array right-to-left using the given function and initial accumulator value.
+  The elements are visited in order from the highest index to the lowest.
+
+  If `fun` is not a function, the call raises `ArgumentError`.
+  """
+  @spec foldr(t(), acc, (index(), value(), acc -> acc)) :: acc when acc: var
+  def foldr(%__MODULE__{arr: arr}, acc, fun) when is_function(fun, 3) do
+    :array.foldr(fun, acc, arr)
   end
 
   @doc """

@@ -1,491 +1,558 @@
 defmodule ExArrayTest do
   use ExUnit.Case, async: true
 
-  test "new/0" do
-    a = ExArray.new()
+  describe "new/0" do
+    test "returns an ExArray struct with default options" do
+      subject = ExArray.new()
 
-    assert true == ExArray.is_array(a)
-    assert false == ExArray.is_fix(a)
-    assert nil == ExArray.default(a)
-
-    assert nil == ExArray.get(a, 0)
-    assert 0 == ExArray.size(a)
-    a = ExArray.set(a, 0, 1)
-    assert 1 == ExArray.get(a, 0)
-    assert 1 == ExArray.size(a)
-  end
-
-  test "new/1, size specified" do
-    a = ExArray.new(10)
-
-    assert true == ExArray.is_array(a)
-    assert true == ExArray.is_fix(a)
-    assert nil == ExArray.default(a)
-    assert 10 == ExArray.size(a)
-
-    assert nil == ExArray.get(a, 0)
-
-    assert nil == ExArray.get(a, 9)
-
-    assert_raise ArgumentError, fn ->
-      ExArray.get(a, 10)
-    end
-
-    a = ExArray.set(a, 0, 1)
-    assert 1 == ExArray.get(a, 0)
-
-    a = ExArray.set(a, 9, 9)
-    assert 9 == ExArray.get(a, 9)
-
-    assert_raise ArgumentError, fn ->
-      ExArray.set(a, 10, 10)
+      assert %ExArray{} = subject
+      refute ExArray.is_fix(subject)
+      assert ExArray.size(subject) == 0
+      assert ExArray.default(subject) |> is_nil()
     end
   end
 
-  test "new/1, negative size" do
-    # This is not an error
-    ExArray.new(0)
+  describe "new/1" do
+    test "with size return an ExArray struct" do
+      subject = ExArray.new(5)
 
-    assert_raise ArgumentError, fn ->
-      ExArray.new(-1)
-    end
-  end
-
-  test "new/1, fixed" do
-    a = ExArray.new(:fixed)
-
-    assert true == ExArray.is_array(a)
-    assert true == ExArray.is_fix(a)
-    assert nil == ExArray.default(a)
-  end
-
-  test "new/1, default value specified" do
-    a = ExArray.new(default: -1)
-
-    assert true == ExArray.is_array(a)
-    assert false == ExArray.is_fix(a)
-    assert -1 == ExArray.default(a)
-    assert -1 == ExArray.get(a, 0)
-  end
-
-  test "default" do
-    a = ExArray.new(default: "foo")
-    assert "foo" == ExArray.default(a)
-
-    a2 = ExArray.new()
-    assert nil == ExArray.default(a2)
-  end
-
-  test "equal?" do
-    assert ExArray.equal?(ExArray.from_list([1, 2, 3]), ExArray.from_list([1, 2, 3]))
-    assert ExArray.equal?(ExArray.from_list([1, :foo, "bar"]), ExArray.from_list([1, :foo, "bar"]))
-    assert ExArray.equal?(ExArray.new(), ExArray.new())
-    assert ExArray.equal?(ExArray.new(10), ExArray.new() |> ExArray.set(9, nil))
-    assert false == ExArray.equal?(ExArray.from_list([1, 2, 3]), ExArray.from_list([1, 2, 3, 4]))
-    assert false == ExArray.equal?(ExArray.from_list([2, 2, 3]), ExArray.from_list([1, 2, 3]))
-    assert false == ExArray.equal?(ExArray.new(), ExArray.from_list(["a", "b", "c"]))
-  end
-
-  test "fix" do
-    a = ExArray.new()
-    a = ExArray.set(a, 100, 0)
-
-    a = ExArray.fix(a)
-
-    assert_raise ArgumentError, fn ->
-      ExArray.set(a, 101, 0)
-    end
-  end
-
-  test "foldl" do
-    a = ExArray.from_list(["a", "b", "c"])
-
-    res =
-      ExArray.foldl(a, "foo", fn idx, elm, acc ->
-        case idx do
-          0 -> assert "a" == elm
-          1 -> assert "b" == elm
-          2 -> assert "c" == elm
-          _ -> assert false
-        end
-
-        acc <> elm
-      end)
-
-    assert "fooabc" == res
-
-    assert_raise ArgumentError, fn ->
-      ExArray.foldl(a, "foo", "bar")
-    end
-  end
-
-  test "foldr" do
-    a = ExArray.from_list(["a", "b", "c"])
-
-    res =
-      ExArray.foldr(a, "foo", fn idx, elm, acc ->
-        case idx do
-          0 -> assert "a" == elm
-          1 -> assert "b" == elm
-          2 -> assert "c" == elm
-          _ -> assert false
-        end
-
-        acc <> elm
-      end)
-
-    assert "foocba" == res
-
-    assert_raise ArgumentError, fn ->
-      ExArray.foldr(a, "foo", "bar")
-    end
-  end
-
-  test "from_list/1" do
-    a = ExArray.from_list([1, 2, 3])
-
-    assert true == ExArray.is_array(a)
-    assert false == ExArray.is_fix(a)
-    assert nil == ExArray.default(a)
-    assert 3 == ExArray.size(a)
-
-    assert 1 == ExArray.get(a, 0)
-    assert 2 == ExArray.get(a, 1)
-    assert 3 == ExArray.get(a, 2)
-  end
-
-  test "from_list/2" do
-    a = ExArray.from_list([3, 2, 1], :foo)
-
-    assert true == ExArray.is_array(a)
-    assert false == ExArray.is_fix(a)
-    assert :foo == ExArray.default(a)
-    assert 3 == ExArray.size(a)
-
-    assert 3 == ExArray.get(a, 0)
-    assert 2 == ExArray.get(a, 1)
-    assert 1 == ExArray.get(a, 2)
-  end
-
-  test "from_orddict/1" do
-    a = ExArray.from_orddict([{1, "a"}, {3, "c"}, {4, "b"}])
-
-    assert true == ExArray.is_array(a)
-    assert false == ExArray.is_fix(a)
-    assert nil == ExArray.default(a)
-    assert 5 == ExArray.size(a)
-
-    assert nil == ExArray.get(a, 0)
-    assert "a" == ExArray.get(a, 1)
-    assert nil == ExArray.get(a, 2)
-    assert "c" == ExArray.get(a, 3)
-    assert "b" == ExArray.get(a, 4)
-    assert nil == ExArray.get(a, 5)
-
-    assert_raise ArgumentError, fn ->
-      # unordered
-      ExArray.from_orddict([{1, "a"}, {4, "b"}, {3, "c"}])
-    end
-  end
-
-  test "from_orddict/2" do
-    a = ExArray.from_orddict([{1, "a"}, {3, "c"}, {4, "b"}], :foo)
-
-    assert true == ExArray.is_array(a)
-    assert false == ExArray.is_fix(a)
-    assert :foo == ExArray.default(a)
-    assert 5 == ExArray.size(a)
-
-    assert :foo == ExArray.get(a, 0)
-    assert "a" == ExArray.get(a, 1)
-    assert :foo == ExArray.get(a, 2)
-    assert "c" == ExArray.get(a, 3)
-    assert "b" == ExArray.get(a, 4)
-    assert :foo == ExArray.get(a, 5)
-
-    assert_raise ArgumentError, fn ->
-      # unordered
-      ExArray.from_orddict([{1, "a"}, {4, "b"}, {3, "c"}], :foo)
-    end
-  end
-
-  test "from_erlang_array" do
-    erl_arr = :array.new()
-    erl_arr = :array.set(0, 1, erl_arr)
-    erl_arr = :array.set(1, 2, erl_arr)
-    erl_arr = :array.set(2, 3, erl_arr)
-
-    a = ExArray.from_erlang_array(erl_arr)
-    assert true == ExArray.is_array(a)
-    assert :array.size(erl_arr) == ExArray.size(a)
-    assert :array.is_fix(erl_arr) == ExArray.is_fix(a)
-    assert :array.default(erl_arr) == ExArray.default(a)
-    assert 1 == ExArray.get(a, 0)
-    assert 2 == ExArray.get(a, 1)
-    assert 3 == ExArray.get(a, 2)
-
-    assert_raise ArgumentError, fn ->
-      ExArray.from_erlang_array([1, 2, 3])
-    end
-  end
-
-  test "is_array" do
-    assert true == ExArray.is_array(ExArray.new())
-    assert false == ExArray.is_array(0)
-    assert false == ExArray.is_array(nil)
-    assert false == ExArray.is_array("foo")
-    assert false == ExArray.is_array(:array.new())
-  end
-
-  test "is_fix" do
-    assert true == ExArray.is_fix(ExArray.new(:fixed))
-    assert false == ExArray.is_fix(ExArray.new(fixed: false))
-  end
-
-  test "map" do
-    a = ExArray.from_list([1, 2, 3])
-
-    a2 =
-      ExArray.map(a, fn idx, elm ->
-        case idx do
-          0 -> assert 1 == elm
-          1 -> assert 2 == elm
-          2 -> assert 3 == elm
-          _ -> assert false
-        end
-
-        2 * elm
-      end)
-
-    assert [2, 4, 6] == ExArray.to_list(a2)
-
-    assert_raise ArgumentError, fn ->
-      ExArray.map(a, "foo")
-    end
-  end
-
-  test "relax" do
-    a = ExArray.new(:fixed)
-    assert true == ExArray.is_fix(a)
-
-    a = ExArray.relax(a)
-    assert false == ExArray.is_fix(a)
-  end
-
-  test "reset" do
-    a = ExArray.from_list([1, 2, 3])
-    assert 2 == ExArray.get(a, 1)
-
-    a = ExArray.reset(a, 1)
-    assert nil == ExArray.get(a, 1)
-  end
-
-  test "resize/1" do
-    a = ExArray.new(10)
-    assert 10 == ExArray.size(a)
-    assert 0 == ExArray.sparse_size(a)
-
-    a = ExArray.set(a, 8, 1)
-    assert 10 == ExArray.size(a)
-    assert 9 == ExArray.sparse_size(a)
-
-    a = ExArray.resize(a)
-    assert 9 == ExArray.size(a)
-    assert 9 == ExArray.sparse_size(a)
-  end
-
-  test "resize/2" do
-    a = ExArray.new(size: 10, fixed: true)
-    assert 10 == ExArray.size(a)
-
-    a = ExArray.resize(a, 5)
-    assert 5 == ExArray.size(a)
-    assert true == ExArray.is_fix(a)
-    assert false == ExArray.new(size: 10, fixed: false) |> ExArray.resize(5) |> ExArray.is_fix()
-
-    assert_raise ArgumentError, fn ->
-      ExArray.resize(ExArray.new(), -1)
-    end
-  end
-
-  test "get/set" do
-    a = ExArray.new()
-
-    a = ExArray.set(a, 5, 10)
-    assert nil == ExArray.get(a, 4)
-    assert 10 == ExArray.get(a, 5)
-    assert nil == ExArray.get(a, 6)
-
-    a = ExArray.set(a, 0, 100)
-    assert 100 == ExArray.get(a, 0)
-
-    assert_raise ArgumentError, fn ->
-      ExArray.set(a, -1, 1000)
+      assert %ExArray{} = subject
+      assert ExArray.is_fix(subject)
+      assert ExArray.size(subject) == 5
+      assert ExArray.default(subject) |> is_nil()
     end
 
-    assert_raise ArgumentError, fn ->
-      ExArray.get(a, -1)
+    test "with size option return an ExArray struct" do
+      subject = ExArray.new(size: 5)
+
+      assert %ExArray{} = subject
+      assert ExArray.is_fix(subject)
+      assert ExArray.size(subject) == 5
+      assert ExArray.default(subject) |> is_nil()
     end
-  end
 
-  test "size" do
-    assert 10 == ExArray.new(size: 10) |> ExArray.size()
-    assert 5 == ExArray.new(size: 5) |> ExArray.size()
-    assert 6 == ExArray.new() |> ExArray.set(5, 0) |> ExArray.size()
-  end
+    test "with fixed option return an ExArray struct" do
+      subject = ExArray.new(fixed: true)
 
-  test "sparse_foldl" do
-    a = ExArray.new(size: 10, default: "x")
-    a = a |> ExArray.set(2, "a") |> ExArray.set(4, "b") |> ExArray.set(6, "c")
-
-    res =
-      ExArray.sparse_foldl(a, "foo", fn idx, elm, acc ->
-        case idx do
-          2 -> assert "a" == elm
-          4 -> assert "b" == elm
-          6 -> assert "c" == elm
-          _ -> assert false
-        end
-
-        acc <> elm
-      end)
-
-    assert "fooabc" == res
-
-    assert_raise ArgumentError, fn ->
-      ExArray.sparse_foldl(a, "foo", "bar")
+      assert %ExArray{} = subject
+      assert ExArray.is_fix(subject)
+      assert ExArray.size(subject) == 0
+      assert ExArray.default(subject) |> is_nil()
     end
-  end
 
-  test "sparse_foldr" do
-    a = ExArray.new(size: 10, default: "x")
-    a = a |> ExArray.set(1, "a") |> ExArray.set(3, "b") |> ExArray.set(5, "c")
+    test "with default option return an ExArray struct" do
+      subject = ExArray.new(default: 42)
 
-    res =
-      ExArray.sparse_foldr(a, "foo", fn idx, elm, acc ->
-        case idx do
-          1 -> assert "a" == elm
-          3 -> assert "b" == elm
-          5 -> assert "c" == elm
-          _ -> assert false
-        end
-
-        acc <> elm
-      end)
-
-    assert "foocba" == res
-
-    assert_raise ArgumentError, fn ->
-      ExArray.sparse_foldr(a, "foo", "bar")
+      assert %ExArray{} = subject
+      refute ExArray.is_fix(subject)
+      assert ExArray.size(subject) == 0
+      assert ExArray.default(subject) == 42
     end
-  end
 
-  test "sparse_map" do
-    a = ExArray.new(size: 10)
-    a = a |> ExArray.set(1, 2) |> ExArray.set(3, 4) |> ExArray.set(5, 6)
+    test "with combined options return an ExArray struct" do
+      subject = ExArray.new(size: 5, default: 42, fixed: true)
 
-    res =
-      ExArray.sparse_map(a, fn idx, elm ->
-        case idx do
-          1 -> assert 2 == elm
-          3 -> assert 4 == elm
-          5 -> assert 6 == elm
-          _ -> assert false
-        end
+      assert %ExArray{} = subject
+      assert ExArray.is_fix(subject)
+      assert ExArray.size(subject) == 5
+      assert ExArray.default(subject) == 42
+    end
 
-        elm / 2
-      end)
-
-    Enum.each(0..9, fn idx ->
-      case idx do
-        1 -> assert 1 == ExArray.get(res, idx)
-        3 -> assert 2 == ExArray.get(res, idx)
-        5 -> assert 3 == ExArray.get(res, idx)
-        _ -> assert nil == ExArray.get(res, idx)
+    test "with negative size option raises an error" do
+      assert_raise ArgumentError, fn ->
+        ExArray.new(size: -5, default: 42, fixed: true)
       end
-    end)
+    end
 
-    assert_raise ArgumentError, fn ->
-      ExArray.sparse_map(a, "foo")
+    test "with unknown option raises an error" do
+      assert_raise ArgumentError, fn ->
+        ExArray.new(size: 5, default: 42, unkwnon: true)
+      end
     end
   end
 
-  test "sparse_size" do
-    a = ExArray.from_list([1, 2, 3, 4, 5])
-    assert 5 == ExArray.sparse_size(a)
-    a = ExArray.reset(a, 4)
-    assert 4 == ExArray.sparse_size(a)
+  describe "is_array/1" do
+    test "with ExArray returns a boolean" do
+      subject = ExArray.new()
+
+      assert ExArray.is_array(subject)
+    end
+
+    test "with List returns a boolean" do
+      subject = []
+
+      refute ExArray.is_array(subject)
+    end
+
+    test "with Map returns a boolean" do
+      subject = []
+
+      refute ExArray.is_array(subject)
+    end
+
+    test "with String returns a boolean" do
+      subject = []
+
+      refute ExArray.is_array(subject)
+    end
   end
 
-  test "sparse_to_list" do
-    a = ExArray.new(size: 10)
-    a = a |> ExArray.set(1, 1) |> ExArray.set(3, 2) |> ExArray.set(5, 3)
+  describe "is_fix/1" do
+    test "with fixed ExArray returns a boolean" do
+      subject = ExArray.new(fixed: false)
 
-    assert [1, 2, 3] == ExArray.sparse_to_list(a)
+      refute ExArray.is_fix(subject)
+    end
+
+    test "with non-fixed ExArray returns a boolean" do
+      subject = ExArray.new(fixed: true)
+
+      assert ExArray.is_fix(subject)
+    end
+
+    test "with non-ExArray returns an error" do
+      assert_raise FunctionClauseError, fn ->
+        ExArray.is_fix(%{})
+      end
+    end
   end
 
-  test "sparse_to_orddict" do
-    a = ExArray.new(size: 10)
-    a = a |> ExArray.set(2, 1) |> ExArray.set(4, 2) |> ExArray.set(6, 3)
+  describe "size/1" do
+    test "with empty ExArray returns an integer" do
+      subject = ExArray.new(0)
 
-    assert [{2, 1}, {4, 2}, {6, 3}] == ExArray.sparse_to_orddict(a)
+      assert ExArray.size(subject) == 0
+    end
+
+    test "with non-empty ExArray returns an integer" do
+      subject = ExArray.new(5) |> ExArray.set(1, "1")
+
+      assert ExArray.size(subject) == 5
+    end
+
+    test "with non-ExArray returns an error" do
+      assert_raise FunctionClauseError, fn ->
+        ExArray.size([])
+      end
+    end
   end
 
-  test "to_erlang_array" do
-    a = ExArray.from_list([1, 2, 3])
-    ea = ExArray.to_erlang_array(a)
+  describe "sparse_size/1" do
+    test "with empty ExArray returns an integer" do
+      subject = ExArray.new(0)
 
-    assert :array.is_array(ea)
-    assert 3 == :array.size(ea)
-    assert 1 == :array.get(0, ea)
-    assert 2 == :array.get(1, ea)
-    assert 3 == :array.get(2, ea)
+      assert ExArray.sparse_size(subject) == 0
+    end
+
+    test "with non-empty ExArray returns an integer" do
+      subject = ExArray.new(5) |> ExArray.set(1, "1")
+
+      assert ExArray.sparse_size(subject) == 2
+    end
+
+    test "with non-ExArray returns an error" do
+      assert_raise FunctionClauseError, fn ->
+        ExArray.sparse_size([])
+      end
+    end
   end
 
-  test "to_list" do
-    a = ExArray.from_list([1, 2, 3])
-    assert [1, 2, 3] == ExArray.to_list(a)
+  describe "default/1" do
+    test "with ExArray returns nil" do
+      subject = ExArray.new()
+
+      assert subject |> ExArray.default() |> is_nil()
+    end
+
+    test "with non-default ExArray returns a value" do
+      subject = ExArray.new(default: -1)
+
+      assert ExArray.default(subject) == -1
+    end
+
+    test "with non-ExArray returns an error" do
+      assert_raise FunctionClauseError, fn ->
+        ExArray.default([])
+      end
+    end
   end
 
-  test "to_orddict" do
-    a = ExArray.from_list([1, 2, 3])
-    assert [{0, 1}, {1, 2}, {2, 3}] == ExArray.to_orddict(a)
+  describe "get/2" do
+    test "with empty ExArray returns value at index" do
+      subject = ExArray.new(5)
+
+      assert subject |> ExArray.get(0) |> is_nil()
+    end
+
+    test "with non-empty ExArray returns value at index" do
+      subject = ExArray.new(5) |> ExArray.set(0, "0")
+
+      assert ExArray.get(subject, 0) == "0"
+    end
+
+    test "with empty ExArray and outbound index returns default" do
+      subject = ExArray.new()
+
+      assert subject |> ExArray.get(100) |> is_nil()
+    end
+
+    test "with empty fixed ExArray and outbound index raises an error" do
+      subject = ExArray.new(fixed: true)
+
+      assert_raise ArgumentError, fn ->
+        ExArray.get(subject, 100)
+      end
+    end
+
+    test "with non-ExArray returns an error" do
+      assert_raise FunctionClauseError, fn ->
+        ExArray.get([], 100)
+      end
+    end
   end
 
-  test "Access.get" do
-    a = ExArray.from_list([1, 2, 3])
-    assert 1 == a[0]
-    assert 2 == a[1]
-    assert 3 == a[2]
-    assert nil == a[3]
+  describe "set/3" do
+    test "with 0 sized ExArray returns an ExArray" do
+      subject = ExArray.new() |> ExArray.set(0, "0")
+
+      assert %ExArray{} = subject
+      assert ExArray.get(subject, 0) == "0"
+    end
+
+    test "with sized ExArray returns an ExArray" do
+      subject = ExArray.new(5) |> ExArray.set(0, "0")
+
+      assert ExArray.get(subject, 0) == "0"
+    end
+
+    test "with sized ExArray and outbound index raises an error" do
+      assert_raise ArgumentError, fn ->
+        ExArray.new(5) |> ExArray.set(5, "0")
+      end
+    end
+
+    test "with negative index raises an error" do
+      assert_raise ArgumentError, fn ->
+        ExArray.new() |> ExArray.set(-1, "0")
+      end
+    end
+
+    test "with non-ExArray returns an error" do
+      assert_raise FunctionClauseError, fn ->
+        ExArray.get([], 100)
+      end
+    end
   end
 
-  test "Access.get_and_update" do
-    a = ExArray.from_list([1, 2, 3])
-    {get, update} = Access.get_and_update(a, 1, fn v -> {2 * v, 100} end)
-    assert 4 == get
-    assert [1, 100, 3] == ExArray.to_list(update)
+  describe "equal?/2" do
+    test "returns true if the same lists" do
+      ex_array1 = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      ex_array2 = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+
+      assert ExArray.equal?(ex_array1, ex_array2)
+    end
+
+    test "returns true if different lists" do
+      ex_array1 = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      ex_array2 = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "4")
+
+      refute ExArray.equal?(ex_array1, ex_array2)
+    end
   end
 
-  test "Enumerable.count" do
-    a = ExArray.from_list([1, 2, 3])
-    assert 3 == Enum.count(a)
+  describe "fix/1" do
+    test "returns an ExArray" do
+      subject = ExArray.new() |> ExArray.set(0, "0")
+
+      refute ExArray.is_fix(subject)
+      assert %ExArray{} = subject = ExArray.fix(subject)
+      assert ExArray.is_fix(subject)
+    end
+
+    test "with fixed ExArray returns an ExArray" do
+      subject = ExArray.new(fixed: true, size: 1) |> ExArray.set(0, "0")
+
+      assert ExArray.is_fix(subject)
+      assert %ExArray{} = subject = ExArray.fix(subject)
+      assert ExArray.is_fix(subject)
+    end
   end
 
-  test "Enumerable.member" do
-    a = ExArray.from_list([1, 2, 3])
-    assert Enum.member?(a, 3)
-    assert false == Enum.member?(a, 4)
+  describe "relax/1" do
+    test "returns an ExArray" do
+      subject = ExArray.new() |> ExArray.set(0, "0")
+
+      refute ExArray.is_fix(subject)
+      assert %ExArray{} = subject = ExArray.relax(subject)
+      refute ExArray.is_fix(subject)
+    end
+
+    test "with fixed ExArray returns an ExArray" do
+      subject = ExArray.new(fixed: true, size: 1) |> ExArray.set(0, "0")
+
+      assert ExArray.is_fix(subject)
+      assert %ExArray{} = subject = ExArray.relax(subject)
+      refute ExArray.is_fix(subject)
+    end
   end
 
-  test "Enumerable.reduce" do
-    sum = Enum.reduce(ExArray.from_list([1, 2, 3]), 0, fn x, acc -> x + acc end)
-    assert 6 == sum
+  describe "reset/2" do
+    test "with default as nil returns an ExArray" do
+      subject = ExArray.new() |> ExArray.set(0, "0")
+
+      assert ExArray.get(subject, 0) == "0"
+      assert %ExArray{} = subject = ExArray.reset(subject, 0)
+      assert subject |> ExArray.get(0) |> is_nil()
+    end
+
+    test "with default as -1 returns an ExArray" do
+      subject = ExArray.new(default: -1) |> ExArray.set(0, "0")
+
+      assert ExArray.get(subject, 0) == "0"
+      assert %ExArray{} = subject = ExArray.reset(subject, 0)
+      assert ExArray.get(subject, 0) == -1
+    end
   end
 
-  test "Collectable.into" do
-    a = Enum.into([1, 2, 3], ExArray.new())
-    assert ExArray.is_array(a)
-    assert [1, 2, 3] == ExArray.to_list(a)
+  describe "resize/1" do
+    test "returns an ExArray" do
+      subject = ExArray.new(5) |> ExArray.set(1, "0")
+
+      assert ExArray.size(subject) == 5
+      assert %ExArray{} = subject = ExArray.resize(subject)
+      assert ExArray.size(subject) == 2
+    end
   end
+
+  describe "resize/2" do
+    test "returns an ExArray" do
+      subject = ExArray.new(5) |> ExArray.set(1, "0")
+
+      assert ExArray.size(subject) == 5
+      assert %ExArray{} = subject = ExArray.resize(subject, 3)
+      assert ExArray.size(subject) == 3
+    end
+  end
+
+  describe "from_erlang_array/1" do
+    test "returns an ExArray" do
+      erl_array = :array.from_list(["0", nil, "2", nil, "4"])
+      ex_array = ExArray.from_erlang_array(erl_array)
+
+      assert ExArray.is_array(ex_array)
+      assert ExArray.to_list(ex_array) == ["0", nil, "2", nil, "4"]
+    end
+  end
+
+  describe "from_list/1" do
+    test "returns an ExArray" do
+      list = ["0", nil, "2", nil, "4"]
+      ex_array = ExArray.from_list(list)
+
+      assert ExArray.is_array(ex_array)
+      assert ExArray.to_list(ex_array) == ["0", nil, "2", nil, "4"]
+    end
+  end
+
+  describe "from_orddict/1" do
+    test "returns an ExArray" do
+      orddict = [{0, "0"}, {2, "2"}, {4, "4"}]
+      ex_array = ExArray.from_orddict(orddict)
+
+      assert ExArray.is_array(ex_array)
+      assert ExArray.to_list(ex_array) == ["0", nil, "2", nil, "4"]
+    end
+  end
+
+  describe "to_erlang_array/1" do
+    test "returns an :array.array()" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      subject = ExArray.to_erlang_array(ex_array)
+
+      assert :array.is_array(subject)
+      assert :array.to_list(subject) == [nil, "1", nil, "3", nil]
+    end
+  end
+
+  describe "to_list/1" do
+    test "returns a list" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      subject = ExArray.to_list(ex_array)
+
+      assert is_list(subject)
+      assert subject == [nil, "1", nil, "3", nil]
+    end
+  end
+
+  describe "sparse_to_list/1" do
+    test "returns an a list without defaults" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      subject = ExArray.sparse_to_list(ex_array)
+
+      assert is_list(subject)
+      assert subject == ["1", "3"]
+    end
+  end
+
+  describe "to_orddict/1" do
+    test "returns an ordered dictionary" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      subject = ExArray.to_orddict(ex_array)
+
+      assert subject == [{0, nil}, {1, "1"}, {2, nil}, {3, "3"}, {4, nil}]
+    end
+  end
+
+  describe "sparse_to_orddict/1" do
+    test "returns an ordered dictionary" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      subject = ExArray.sparse_to_orddict(ex_array)
+
+      assert subject == [{1, "1"}, {3, "3"}]
+    end
+  end
+
+  describe "map/2" do
+    test "returns an ExArray" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      subject = ExArray.map(ex_array, fn index, value -> {index, value} end)
+
+      assert ExArray.is_array(subject)
+      assert ExArray.to_list(subject) == [{0, nil}, {1, "1"}, {2, nil}, {3, "3"}, {4, nil}]
+    end
+  end
+
+  describe "sparse_map/2" do
+    test "returns an ExArray" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      subject = ExArray.sparse_map(ex_array, fn index, value -> {index, value} end)
+
+      assert ExArray.is_array(subject)
+      assert ExArray.to_list(subject) == [nil, {1, "1"}, nil, {3, "3"}, nil]
+    end
+  end
+
+  describe "foldl/3" do
+    test "returns a list" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      subject = ExArray.foldl(ex_array, [], fn index, value, acc -> [{index, value} | acc] end)
+
+      assert subject == [{4, nil}, {3, "3"}, {2, nil}, {1, "1"}, {0, nil}]
+    end
+  end
+
+  describe "sparse_foldl/3" do
+    test "returns a list" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      subject = ExArray.sparse_foldl(ex_array, [], fn index, value, acc -> [{index, value} | acc] end)
+
+      assert subject == [{3, "3"}, {1, "1"}]
+    end
+  end
+
+  describe "foldr/3" do
+    test "returns a list" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      subject = ExArray.foldr(ex_array, [], fn index, value, acc -> [{index, value} | acc] end)
+
+      assert subject == [{0, nil}, {1, "1"}, {2, nil}, {3, "3"}, {4, nil}]
+    end
+  end
+
+  describe "sparse_foldr/3" do
+    test "returns a list" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      subject = ExArray.sparse_foldr(ex_array, [], fn index, value, acc -> [{index, value} | acc] end)
+
+      assert subject == [{1, "1"}, {3, "3"}]
+    end
+  end
+
+  describe "Access.fetch/2" do
+    test "with valid index returns the value" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+
+      assert Access.fetch(ex_array, 1) == {:ok, "1"}
+    end
+
+    test "with invalid index returns error" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+
+      assert Access.fetch(ex_array, 0) == :error
+    end
+
+    test "with outbound index raises an error" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+
+      assert_raise ArgumentError, fn ->
+        Access.fetch(ex_array, 100)
+      end
+    end
+  end
+
+  describe "Access.get_and_update/2" do
+    test "with valid index returns the value" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      {previous, current} = Access.get_and_update(ex_array, 1, fn value -> {value, value <> "00"} end)
+
+      assert previous == "1"
+      assert ExArray.is_array(current)
+      assert ExArray.to_list(current) == [nil, "100", nil, "3", nil]
+    end
+
+    test "with invalid index returns error" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      {previous, current} = Access.get_and_update(ex_array, 0, fn value -> {value, "0"} end)
+
+      assert is_nil(previous)
+      assert ExArray.is_array(current)
+      assert ExArray.to_list(current) == ["0", "1", nil, "3", nil]
+    end
+
+    test "with outbound index raises an error" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+
+      assert_raise ArgumentError, fn ->
+        Access.get_and_update(ex_array, 100, fn value -> {value, "0"} end)
+      end
+    end
+  end
+
+  describe "Access.pop/2" do
+    test "with valid index returns the value" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      {value, ex_array} = Access.pop(ex_array, 1)
+
+      assert value == "1"
+      assert ExArray.is_array(ex_array)
+      assert ExArray.to_list(ex_array) == [nil, nil, nil, "3", nil]
+    end
+
+    test "with invalid index returns nil" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+      {value, ex_array} = Access.pop(ex_array, 0)
+
+      assert is_nil(value)
+      assert ExArray.is_array(ex_array)
+      assert ExArray.to_list(ex_array) == [nil, "1", nil, "3", nil]
+    end
+
+    test "with outbound index raises an error" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+
+      assert_raise ArgumentError, fn ->
+        Access.pop(ex_array, 100)
+      end
+    end
+  end
+
+  # test "equal?" do
+  #   assert ExArray.equal?(ExArray.from_list([1, 2, 3]), ExArray.from_list([1, 2, 3]))
+  #   assert ExArray.equal?(ExArray.from_list([1, :foo, "bar"]), ExArray.from_list([1, :foo, "bar"]))
+  #   assert ExArray.equal?(ExArray.new(), ExArray.new())
+  #   assert ExArray.equal?(ExArray.new(10), ExArray.new() |> ExArray.set(9, nil))
+  #   assert false == ExArray.equal?(ExArray.from_list([1, 2, 3]), ExArray.from_list([1, 2, 3, 4]))
+  #   assert false == ExArray.equal?(ExArray.from_list([2, 2, 3]), ExArray.from_list([1, 2, 3]))
+  #   assert false == ExArray.equal?(ExArray.new(), ExArray.from_list(["a", "b", "c"]))
+  # end
 end
