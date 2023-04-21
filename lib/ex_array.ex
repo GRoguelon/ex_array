@@ -3,111 +3,277 @@ defmodule ExArray do
   A wrapper module for Erlang's array.
   """
 
-  defstruct content: nil
+  @modulestr __MODULE__ |> Module.split() |> Enum.join(".")
 
-  @behaviour Access
+  @default nil
+
+  defstruct arr: :array.new(default: @default)
 
   ## Types
 
-  @type t :: %__MODULE__{content: :array.array()}
-  @type index :: non_neg_integer
-  @type element :: term
-  @type opts :: opt | [opt]
-  @type opt :: {:fixed, boolean} | :fixed | {:default, any} | {:size, non_neg_integer} | non_neg_integer
-  @type orddict :: [{index, element}]
+  @typedoc "Defines the module typespec"
+  @type t :: %__MODULE__{arr: array()}
+
+  @typedoc "Defines the number of values in the array."
+  @type size :: non_neg_integer()
+
+  @typedoc "Defines the number maximum of values in the array."
+  @type max :: non_neg_integer()
+
+  @typedoc "Defines the array index."
+  @type index() :: non_neg_integer()
+
+  @typedoc "Defines the array value."
+  @type value() :: term()
+
+  @typedoc "Defines the array default value."
+  @type default() :: term()
+
+  @typedoc "Defines the possible options."
+  @type option() ::
+          {:fixed, boolean()}
+          | :fixed
+          | {:default, term()}
+          | {:size, non_neg_integer()}
+          | (size :: non_neg_integer())
+
+  @typedoc "Defines the options accepted by `new/1`."
+  @type options() :: option() | [option()]
+
+  @typedoc """
+  Represents an `:array` from Erlang. The representation is not documented and is subject to change without notice.
+  """
+  @opaque array() :: {:array, size(), max(), default :: term(), elements :: elements(term())}
+
+  @typedoc "Represents a keyword list where the index is the key and the value is the element."
+  @opaque orddict() :: [{index :: index(), value :: term()}]
+
+  @typep elements(t) :: non_neg_integer() | element_tuple(t) | nil
+
+  @typep element_tuple(t) ::
+           {t, t, t, t, t, t, t, t, t, t}
+           | {element_tuple(t), element_tuple(t), element_tuple(t), element_tuple(t), element_tuple(t),
+              element_tuple(t), element_tuple(t), element_tuple(t), element_tuple(t), element_tuple(t),
+              non_neg_integer()}
+
+  ## Behaviours
+
+  @behaviour Access
+
+  @impl Access
+  @spec fetch(t(), index()) :: :error | {:ok, any}
+  def fetch(%__MODULE__{} = ex_arr, index) do
+    if value = get(ex_arr, index) do
+      {:ok, value}
+    else
+      :error
+    end
+  end
+
+  @impl Access
+  @spec get_and_update(t(), index(), (any() -> {any(), any()})) :: {any(), t()}
+  def get_and_update(%__MODULE__{} = ex_arr, index, fun) when is_function(fun, 1) do
+    {get, update} = ex_arr |> get(index) |> fun.()
+
+    {get, set(ex_arr, index, update)}
+  end
+
+  @impl Access
+  @spec pop(t(), index()) :: {any(), t()}
+  def pop(%__MODULE__{} = ex_arr, index) do
+    if value = get(ex_arr, index) do
+      {value, reset(ex_arr, index)}
+    else
+      {nil, ex_arr}
+    end
+  end
 
   ## Public functions
 
   @doc """
-  Creates a new, extendible array with initial size zero.
-  The default value is the atom nil, not undefined.
+  Creates a new, extendible array with initial size zero. The default value is `nil`.
+
+  ## Examples
+
+      iex> #{@modulestr}.new()
+      #ExArray<[], fixed=false, default=nil>
   """
-  @spec new() :: t
+  @spec new() :: t()
   def new() do
-    %__MODULE__{content: :array.new({:default, nil})}
+    new(default: @default)
   end
 
   @doc """
   Creates a new fixed array according to the given options.
   By default, the array is extendible and has initial size zero.
-  The default value is the atom nil, if not specified.
+  The default value is `nil`, if not specified.
 
   `options` is a single term or a list of terms, selected from the following:
 
-  * `n : non_neg_integer` or `{:size, n : non_neg_integer}`
+  * `n` or `{:size, n}`
       * Specifies the initial size of the array; this also implies `{:fixed, true}`.
-        If `n` is not a nonnegative integer, the call raises `ArgumentError`.
-  * `:fixed` or `{:fixed, true}`
+      * If `n` is not a non-negative integer, the call raises `ArgumentError`.
+  * `{:fixed, true}`
       * Creates a fixed-size array.
-  * `{:fixed, false}`
-      * Creates an extendible (non fixed-size) array.
   * `{:default, value}`
       * Sets the default value for the array to `value`.
+
+  ## Examples
+
+      iex> #{@modulestr}.new(5)
+      #ExArray<[nil, nil, nil, nil, nil], fixed=true, default=nil>
+
+      iex> #{@modulestr}.new(size: 5)
+      #ExArray<[nil, nil, nil, nil, nil], fixed=true, default=nil>
+
+      iex> #{@modulestr}.new(fixed: true)
+      #ExArray<[], fixed=true, default=nil>
+
+      iex> #{@modulestr}.new(default: 0)
+      #ExArray<[], fixed=false, default=0>
+
+      iex> #{@modulestr}.new(size: 5, fixed: true, default: 0)
+      #ExArray<[0, 0, 0, 0, 0], fixed=true, default=0>
   """
-  @spec new(opts) :: t
-  def new(options) do
-    if is_list(options) do
-      %__MODULE__{content: :array.new([{:default, nil} | options])}
-    else
-      %__MODULE__{content: :array.new([{:default, nil}, options])}
-    end
+  @spec new(options()) :: t()
+  def new(size) when is_integer(size) do
+    new(size: size, default: @default)
+  end
+
+  def new(options) when is_list(options) do
+    options = Keyword.put_new(options, :default, @default)
+
+    %__MODULE__{arr: :array.new(options)}
   end
 
   @doc """
-  Check if two arrays are equal using ===.
+  Returns `true` if `arr` appears to be an array, otherwise `false`.
+  Note that the check is only shallow; there is no guarantee that `arr` is a well-formed array
+  representation even if this function returns `true`.
   """
-  @spec equal?(t, t) :: boolean
-  def equal?(%__MODULE__{content: c1}, %__MODULE__{content: c2}) do
-    s1 = :array.size(c1)
-    s2 = :array.size(c2)
+  @spec is_array(any()) :: boolean()
+  def is_array(%__MODULE__{arr: arr}) do
+    :array.is_array(arr)
+  end
 
-    cond do
-      s1 != s2 ->
-        false
+  @doc """
+  Checks if the array has fixed size. Returns `true` if the array is fixed, otherwise `false`.
+  """
+  @spec is_fix(t()) :: boolean()
+  def is_fix(%__MODULE__{arr: arr}) do
+    :array.is_fix(arr)
+  end
 
-      s1 <= 0 ->
-        true
+  @doc """
+  Gets the number of entries in the array.
+  Entries are numbered from 0 to `size(array)-1`; hence, this is also the index of
+  the first entry that is guaranteed to not have been previously set.
+  """
+  @spec size(t()) :: non_neg_integer()
+  def size(%__MODULE__{arr: arr}) do
+    :array.size(arr)
+  end
 
-      true ->
-        Range.new(0, s1 - 1) |> Enumerable.reduce({:cont, true}, fn idx, _acc -> equal?(c1, c2, idx) end) |> elem(1)
-    end
+  @doc """
+  Gets the number of entries in the array up until the last non-default valued entry.
+  In other words, returns `index+1` if `index` is the last non-default valued entry in the array,
+  or zero if no such entry exists.
+  """
+  @spec sparse_size(t()) :: non_neg_integer()
+  def sparse_size(%__MODULE__{arr: arr}) do
+    :array.sparse_size(arr)
   end
 
   @doc """
   Gets the value used for uninitialized entries.
   """
-  @spec default(t) :: any
-  def default(%__MODULE__{content: c}), do: :array.default(c)
+  @spec default(t()) :: default()
+  def default(%__MODULE__{arr: arr}) do
+    :array.default(arr)
+  end
+
+  @doc """
+  Gets the value of entry `index`. If `index` is not a nonnegative integer, or if the array has
+  fixed size and `index` is larger than the maximum index, the call raises `ArgumentError`.
+  """
+  @spec get(t(), index()) :: value()
+  def get(%__MODULE__{arr: arr}, index) do
+    :array.get(index, arr)
+  end
+
+  @doc """
+  Sets entry `index` of the array to `val`.
+  If `index` is not a nonnegative integer, or if the array has fixed size and `index` is
+  larger than the maximum index, the call raises `ArgumentError`.
+  """
+  @spec set(t(), index(), value()) :: t()
+  def set(%__MODULE__{arr: arr}, index, value) do
+    %__MODULE__{arr: :array.set(index, value, arr)}
+  end
+
+  @doc """
+  Check if two arrays are equal using ===.
+  """
+  @spec equal?(t(), t()) :: boolean()
+  def equal?(%__MODULE__{arr: arr1}, %__MODULE__{arr: arr2}) do
+    arr1 === arr2
+  end
 
   @doc """
   Fixes the size of the array. This prevents it from growing automatically upon insertion.
   """
-  @spec fix(t) :: t
-  def fix(%__MODULE__{content: c} = arr), do: %__MODULE__{arr | content: :array.fix(c)}
+  @spec fix(t()) :: t()
+  def fix(%__MODULE__{arr: arr}) do
+    %__MODULE__{arr: :array.fix(arr)}
+  end
 
   @doc """
-  Folds the elements of the array using the given function and initial accumulator value.
-  The elements are visited in order from the lowest index to the highest.
-
-  If `fun` is not a function, the call raises `ArgumentError`.
+  Makes the array resizable.
   """
-  @spec foldl(t, acc, (index, element, acc -> acc)) :: acc when acc: var
-  def foldl(%__MODULE__{content: c}, acc, fun), do: :array.foldl(fun, acc, c)
+  @spec relax(t()) :: t()
+  def relax(%__MODULE__{arr: arr}) do
+    %__MODULE__{arr: :array.relax(arr)}
+  end
 
   @doc """
-  Folds the elements of the array right-to-left using the given function and initial accumulator value.
-  The elements are visited in order from the highest index to the lowest.
+  Resets entry `index` to the default value for the array.
+  If the value of entry `index` is the default value the array will be returned unchanged.
+  Reset will never change size of the array. Shrinking can be done explicitly by calling `resize/2`.
 
-  If `fun` is not a function, the call raises `ArgumentError`.
+  If `index` is not a nonnegative integer, or if the array has fixed size and `index` is
+  larger than the maximum index, the call raises `ArgumentError`.
   """
-  @spec foldr(t, acc, (index, element, acc -> acc)) :: acc when acc: var
-  def foldr(%__MODULE__{content: c}, acc, fun), do: :array.foldr(fun, acc, c)
+  @spec reset(t(), index()) :: t()
+  def reset(%__MODULE__{arr: arr}, index) do
+    %__MODULE__{arr: :array.reset(index, arr)}
+  end
 
   @doc """
-  Equivalent to `from_list(list, nil)`.
+  Changes the size of the array to that reported by `sparse_size/1`.
+  If the given array has fixed size, the resulting array will also have fixed size.
   """
-  @spec from_list(list) :: t
-  def from_list(list), do: %__MODULE__{content: :array.from_list(list, nil)}
+  @spec resize(t()) :: t()
+  def resize(%__MODULE__{arr: arr}) do
+    %__MODULE__{arr: :array.resize(arr)}
+  end
+
+  @doc """
+  Changes the size of the array.
+  If `size` is not a nonnegative integer, the call raises `ArgumentError`.
+  If the given array has fixed size, the resulting array will also have fixed size.
+  """
+  @spec resize(t(), non_neg_integer()) :: t()
+  def resize(%__MODULE__{arr: arr}, size) do
+    %__MODULE__{arr: :array.resize(size, arr)}
+  end
+
+  @doc """
+  Converts the array to its underlying Erlang's array.
+  """
+  @spec to_erlang_array(t()) :: array()
+  def to_erlang_array(%__MODULE__{arr: arr}) do
+    arr
+  end
 
   @doc """
   Converts a list to an extendible array.
@@ -115,14 +281,10 @@ defmodule ExArray do
 
   If `list` is not a proper list, the call raises `ArgumentError`.
   """
-  @spec from_list(list, any) :: t
-  def from_list(list, default), do: %__MODULE__{content: :array.from_list(list, default)}
-
-  @doc """
-  Equivalent to `from_orddict(orddict, nil)`.
-  """
-  @spec from_orddict(orddict) :: t
-  def from_orddict(orddict), do: %__MODULE__{content: :array.from_orddict(orddict, nil)}
+  @spec from_list(list(), any()) :: t()
+  def from_list(list, default \\ nil) do
+    %__MODULE__{arr: :array.from_list(list, default)}
+  end
 
   @doc """
   Converts an ordered list of pairs `{index, value}` to a corresponding extendible array.
@@ -131,8 +293,10 @@ defmodule ExArray do
   If `orddict` is not a proper, ordered list of pairs whose first elements are nonnegative integers,
   the call raises `ArgumentError`.
   """
-  @spec from_orddict(orddict, any) :: t
-  def from_orddict(orddict, default), do: %__MODULE__{content: :array.from_orddict(orddict, default)}
+  @spec from_orddict(orddict(), any()) :: t()
+  def from_orddict(orddict, default \\ nil) do
+    %__MODULE__{arr: :array.from_orddict(orddict, default)}
+  end
 
   @doc """
   Converts an Erlang's array to an array.
@@ -140,40 +304,46 @@ defmodule ExArray do
 
   If `erl_arr` is not an Erlang's array, the call raises `ArgumentError`.
   """
-  @spec from_erlang_array(:array.array()) :: t
+  @spec from_erlang_array(array()) :: t()
   def from_erlang_array(erl_arr) do
-    if :array.is_array(erl_arr) do
-      %__MODULE__{content: erl_arr}
-    else
+    unless :array.is_array(erl_arr) do
       raise ArgumentError
     end
+
+    erl_arr
   end
 
   @doc """
-  Gets the value of entry `idx`. If `idx` is not a nonnegative integer, or if the array has
-  fixed size and `idx` is larger than the maximum index, the call raises `ArgumentError`.
+  Converts the array to a list.
   """
-  @spec get(t, index) :: element
-  def get(%__MODULE__{content: c}, idx), do: :array.get(idx, c)
-
-  @doc """
-  Returns `true` if `arr` appears to be an array, otherwise `false`.
-  Note that the check is only shallow; there is no guarantee that `arr` is a well-formed array
-  representation even if this function returns `true`.
-  """
-  @spec is_array(t) :: boolean
-  def is_array(arr) do
-    case arr do
-      %__MODULE__{content: c} -> :array.is_array(c)
-      _ -> false
-    end
+  @spec to_list(t()) :: list()
+  def to_list(%__MODULE__{arr: arr}) do
+    :array.to_list(arr)
   end
 
   @doc """
-  Checks if the array has fixed size. Returns `true` if the array is fixed, otherwise `false`.
+  Converts the array to a list, skipping default-valued entries.
   """
-  @spec is_fix(t) :: boolean
-  def is_fix(%__MODULE__{content: c}), do: :array.is_fix(c)
+  @spec sparse_to_list(t()) :: list()
+  def sparse_to_list(%__MODULE__{arr: arr}) do
+    :array.sparse_to_list(arr)
+  end
+
+  @doc """
+  Converts the array to an ordered list of pairs `{index, value}`.
+  """
+  @spec to_orddict(t()) :: orddict()
+  def to_orddict(%__MODULE__{arr: arr}) do
+    :array.to_orddict(arr)
+  end
+
+  @doc """
+  Converts the array to an ordered list of pairs `{index, value}`, skipping default-valued entries.
+  """
+  @spec sparse_to_orddict(t()) :: orddict()
+  def sparse_to_orddict(%__MODULE__{arr: arr}) do
+    :array.sparse_to_orddict(arr)
+  end
 
   @doc """
   Maps the given function onto each element of the array.
@@ -181,56 +351,43 @@ defmodule ExArray do
 
   If `fun` is not a function, the call raises `ArgumentError`.
   """
-  @spec map(t, (index, element -> any)) :: t
-  def map(%__MODULE__{content: c} = arr, fun), do: %__MODULE__{arr | content: :array.map(fun, c)}
+  @spec map(t(), (index(), value() -> any())) :: t()
+  def map(%__MODULE__{arr: arr}, fun) when is_function(fun, 2) do
+    %__MODULE__{arr: :array.map(fun, arr)}
+  end
 
   @doc """
-  Makes the array resizable.
+  Maps the given function onto each element of the array, skipping default-valued entries.
+  The elements are visited in order from the lowest index to the highest.
+
+  If `fun` is not a function, the call raises `ArgumentError`.
   """
-  @spec relax(t) :: t
-  def relax(%__MODULE__{content: c} = arr), do: %__MODULE__{arr | content: :array.relax(c)}
+  @spec sparse_map(t(), (index(), value() -> any())) :: t()
+  def sparse_map(%__MODULE__{arr: arr}, fun) when is_function(fun, 2) do
+    %__MODULE__{arr: :array.sparse_map(fun, arr)}
+  end
 
   @doc """
-  Resets entry `idx` to the default value for the array.
-  If the value of entry `idx` is the default value the array will be returned unchanged.
-  Reset will never change size of the array. Shrinking can be done explicitly by calling `resize/2`.
+  Folds the elements of the array using the given function and initial accumulator value.
+  The elements are visited in order from the lowest index to the highest.
 
-  If `idx` is not a nonnegative integer, or if the array has fixed size and `idx` is
-  larger than the maximum index, the call raises `ArgumentError`.
+  If `fun` is not a function, the call raises `ArgumentError`.
   """
-  @spec reset(t, index) :: t
-  def reset(%__MODULE__{content: c} = arr, idx), do: %__MODULE__{arr | content: :array.reset(idx, c)}
-
-  @doc """
-  Changes the size of the array to that reported by `sparse_size/1`.
-  If the given array has fixed size, the resulting array will also have fixed size.
-  """
-  @spec resize(t) :: t
-  def resize(%__MODULE__{content: c} = arr), do: %__MODULE__{arr | content: :array.resize(c)}
+  @spec foldl(t(), acc, (index(), value(), acc -> acc)) :: acc when acc: var
+  def foldl(%__MODULE__{arr: arr}, acc, fun) when is_function(fun, 3) do
+    :array.foldl(fun, acc, arr)
+  end
 
   @doc """
-  Changes the size of the array.
-  If `size` is not a nonnegative integer, the call raises `ArgumentError`.
-  If the given array has fixed size, the resulting array will also have fixed size.
-  """
-  @spec resize(t, non_neg_integer) :: t
-  def resize(%__MODULE__{content: c} = arr, size), do: %__MODULE__{arr | content: :array.resize(size, c)}
+  Folds the elements of the array right-to-left using the given function and initial accumulator value.
+  The elements are visited in order from the highest index to the lowest.
 
-  @doc """
-  Sets entry `idx` of the array to `val`.
-  If `idx` is not a nonnegative integer, or if the array has fixed size and `idx` is
-  larger than the maximum index, the call raises `ArgumentError`.
+  If `fun` is not a function, the call raises `ArgumentError`.
   """
-  @spec set(t, index, element) :: t
-  def set(%__MODULE__{content: c} = arr, idx, val), do: %__MODULE__{arr | content: :array.set(idx, val, c)}
-
-  @doc """
-  Gets the number of entries in the array.
-  Entries are numbered from 0 to `size(array)-1`; hence, this is also the index of
-  the first entry that is guaranteed to not have been previously set.
-  """
-  @spec size(t) :: non_neg_integer
-  def size(%__MODULE__{content: c}), do: :array.size(c)
+  @spec foldr(t(), acc, (index(), value(), acc -> acc)) :: acc when acc: var
+  def foldr(%__MODULE__{arr: arr}, acc, fun) when is_function(fun, 3) do
+    :array.foldr(fun, acc, arr)
+  end
 
   @doc """
   Folds the elements of the array using the given function and initial accumulator value,
@@ -239,8 +396,10 @@ defmodule ExArray do
 
   If `fun` is not a function, the call raises `ArgumentError`.
   """
-  @spec sparse_foldl(t, acc, (index, element, acc -> acc)) :: acc when acc: var
-  def sparse_foldl(%__MODULE__{content: c}, acc, fun), do: :array.sparse_foldl(fun, acc, c)
+  @spec sparse_foldl(t(), acc, (index(), value(), acc -> acc)) :: acc when acc: var
+  def sparse_foldl(%__MODULE__{arr: arr}, acc, fun) when is_function(fun, 3) do
+    :array.sparse_foldl(fun, acc, arr)
+  end
 
   @doc """
   Folds the elements of the array right-to-left using the given function and initial accumulator value,
@@ -249,92 +408,8 @@ defmodule ExArray do
 
   If `fun` is not a function, the call raises `ArgumentError`.
   """
-  @spec sparse_foldr(t, acc, (index, element, acc -> acc)) :: acc when acc: var
-  def sparse_foldr(%__MODULE__{content: c}, acc, fun), do: :array.sparse_foldr(fun, acc, c)
-
-  @doc """
-  Maps the given function onto each element of the array, skipping default-valued entries.
-  The elements are visited in order from the lowest index to the highest.
-
-  If `fun` is not a function, the call raises `ArgumentError`.
-  """
-  @spec sparse_map(t, (non_neg_integer, element -> any)) :: t
-  def sparse_map(%__MODULE__{content: c} = arr, fun), do: %__MODULE__{arr | content: :array.sparse_map(fun, c)}
-
-  @doc """
-  Gets the number of entries in the array up until the last non-default valued entry.
-  In other words, returns `idx+1` if `idx` is the last non-default valued entry in the array,
-  or zero if no such entry exists.
-  """
-  @spec sparse_size(t) :: non_neg_integer
-  def sparse_size(%__MODULE__{content: c}), do: :array.sparse_size(c)
-
-  @doc """
-  Converts the array to a list, skipping default-valued entries.
-  """
-  @spec sparse_to_list(t) :: list
-  def sparse_to_list(%__MODULE__{content: c}), do: :array.sparse_to_list(c)
-
-  @doc """
-  Converts the array to an ordered list of pairs `{index, value}`, skipping default-valued entries.
-  """
-  @spec sparse_to_orddict(t) :: [{index, element}]
-  def sparse_to_orddict(%__MODULE__{content: c}), do: :array.sparse_to_orddict(c)
-
-  @doc """
-  Converts the array to its underlying Erlang's array.
-  """
-  @spec to_erlang_array(t) :: :array.array()
-  def to_erlang_array(%__MODULE__{content: c}), do: c
-
-  @doc """
-  Converts the array to a list.
-  """
-  @spec to_list(t) :: list
-  def to_list(%__MODULE__{content: c}), do: :array.to_list(c)
-
-  @doc """
-  Converts the array to an ordered list of pairs `{index, value}`.
-  """
-  @spec to_orddict(t) :: [{index, element}]
-  def to_orddict(%__MODULE__{content: c}), do: :array.to_orddict(c)
-
-  @impl Access
-  @spec fetch(t(), index()) :: :error | {:ok, any}
-  def fetch(%__MODULE__{} = arr, idx) do
-    if -1 < idx and idx < size(arr) do
-      {:ok, get(arr, idx)}
-    else
-      :error
-    end
-  end
-
-  @impl Access
-  @spec get_and_update(t(), index(), (any() -> {any(), any()})) :: {any(), t()}
-  def get_and_update(%__MODULE__{} = arr, idx, fun) do
-    {get, update} = fun.(get(arr, idx))
-    {get, ExArray.set(arr, idx, update)}
-  end
-
-  @impl Access
-  @spec pop(t(), index()) :: {any(), t()}
-  def pop(%__MODULE__{} = arr, idx) do
-    if -1 < idx and idx < size(arr) do
-      value = get(arr, idx)
-      {value, reset(arr, idx)}
-    else
-      {nil, arr}
-    end
-  end
-
-  ## Private functions
-
-  @spec equal?(:array.array(), :array.array(), non_neg_integer()) :: {:cont | :halt, boolean()}
-  defp equal?(c1, c2, idx) do
-    if :array.get(idx, c1) === :array.get(idx, c2) do
-      {:cont, true}
-    else
-      {:halt, false}
-    end
+  @spec sparse_foldr(t(), acc, (index(), value(), acc -> acc)) :: acc when acc: var
+  def sparse_foldr(%__MODULE__{arr: arr}, acc, fun) when is_function(fun, 3) do
+    :array.sparse_foldr(fun, acc, arr)
   end
 end
