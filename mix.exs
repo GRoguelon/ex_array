@@ -10,6 +10,7 @@ defmodule ExArray.MixProject do
       start_permanent: Mix.env() == :prod,
       package: package(),
       deps: deps(),
+      docs: docs(),
       description: "A wrapper module for Erlang's array.",
       source_url: "https://github.com/groguelon/ex_array"
     ]
@@ -22,19 +23,29 @@ defmodule ExArray.MixProject do
     ]
   end
 
-  defp package() do
+  defp package do
     [
       # These are the default files included in the package
-      files: ~w[lib priv .formatter.exs mix.exs README* readme* LICENSE* license* CHANGELOG* changelog* src],
-      licenses: ["MIT"]
+      files: ~w[lib .formatter.exs mix.exs README* LICENSE*],
+      licenses: ["MIT"],
+      links: %{
+        "Github" => "https://github.com/groguelon/ex_array"
+      }
+    ]
+  end
+
+  defp docs do
+    [
+      formatters: ["html"],
+      main: "readme",
+      extras: ["README.md", "LICENSE"]
     ]
   end
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
 end
