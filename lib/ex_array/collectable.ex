@@ -1,7 +1,9 @@
 defimpl Collectable, for: ExArray do
   @moduledoc false
 
-  @spec into(@for.t()) :: {initial_acc :: term(), collector :: (term(), @protocol.command() -> @protocol.t() | term())}
+  @spec into(@for.t()) ::
+          {initial_acc :: term(),
+           collector :: (term(), @protocol.command() -> @protocol.t() | term())}
   def into(original) do
     initial = {@for.size(original), original}
 

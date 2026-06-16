@@ -444,7 +444,9 @@ defmodule ExArrayTest do
   describe "sparse_foldl/3" do
     test "returns a list" do
       ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
-      subject = ExArray.sparse_foldl(ex_array, [], fn index, value, acc -> [{index, value} | acc] end)
+
+      subject =
+        ExArray.sparse_foldl(ex_array, [], fn index, value, acc -> [{index, value} | acc] end)
 
       assert subject == [{3, "3"}, {1, "1"}]
     end
@@ -462,7 +464,9 @@ defmodule ExArrayTest do
   describe "sparse_foldr/3" do
     test "returns a list" do
       ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
-      subject = ExArray.sparse_foldr(ex_array, [], fn index, value, acc -> [{index, value} | acc] end)
+
+      subject =
+        ExArray.sparse_foldr(ex_array, [], fn index, value, acc -> [{index, value} | acc] end)
 
       assert subject == [{1, "1"}, {3, "3"}]
     end

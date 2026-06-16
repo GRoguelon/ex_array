@@ -23,7 +23,8 @@ defmodule ExArray.AccessTest do
     end
 
     test "with stored falsy value returns ok" do
-      ex_array = ExArray.new(size: 3, default: :unset) |> ExArray.set(0, false) |> ExArray.set(1, nil)
+      ex_array =
+        ExArray.new(size: 3, default: :unset) |> ExArray.set(0, false) |> ExArray.set(1, nil)
 
       assert Access.fetch(ex_array, 0) == {:ok, false}
       assert Access.fetch(ex_array, 1) == {:ok, nil}
@@ -34,7 +35,9 @@ defmodule ExArray.AccessTest do
   describe "get_and_update/2" do
     test "with valid index returns the value" do
       ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
-      {previous, current} = Access.get_and_update(ex_array, 1, fn value -> {value, value <> "00"} end)
+
+      {previous, current} =
+        Access.get_and_update(ex_array, 1, fn value -> {value, value <> "00"} end)
 
       assert previous == "1"
       assert ExArray.is_array(current)
@@ -87,7 +90,9 @@ defmodule ExArray.AccessTest do
     end
 
     test "with stored falsy value pops the value and resets the slot" do
-      ex_array = ExArray.new(size: 3, default: :unset) |> ExArray.set(0, false) |> ExArray.set(1, nil)
+      ex_array =
+        ExArray.new(size: 3, default: :unset) |> ExArray.set(0, false) |> ExArray.set(1, nil)
+
       {value, ex_array} = Access.pop(ex_array, 0)
 
       assert value == false
