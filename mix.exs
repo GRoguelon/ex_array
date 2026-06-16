@@ -13,10 +13,7 @@ defmodule ExArray.MixProject do
       deps: deps(),
       docs: docs(),
       description: "A wrapper module for Erlang's array.",
-      source_url: "https://github.com/groguelon/ex_array",
-      preferred_cli_env: [
-        "test.watch": :test
-      ]
+      source_url: "https://github.com/groguelon/ex_array"
     ]
   end
 
