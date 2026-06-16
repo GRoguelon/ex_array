@@ -17,8 +17,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Elixir 1.14 supports OTP 23–26
-          - { elixir: "1.14", otp: "23", os: "ubuntu-22.04" }
+          # Elixir 1.14 supports OTP 23–26 (OTP 23 has no prebuilt binary
+          # for GitHub-hosted runners, so it is not tested in CI).
           - { elixir: "1.14", otp: "24", os: "ubuntu-22.04" }
           - { elixir: "1.14", otp: "25", os: "ubuntu-22.04" }
           - { elixir: "1.14", otp: "26", os: "ubuntu-22.04" }
