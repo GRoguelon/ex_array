@@ -9,7 +9,7 @@ Requires Elixir v1.14+:
 ```elixir
 def deps do
   [
-    {:ex_array, "~> 0.1.3"}
+    {:ex_array, "~> 1.0"}
   ]
 end
 ```
