@@ -68,13 +68,13 @@ ExArray.size(arr)
 #=> 2
 ```
 
-### Convertions
+### Conversions
 
 ```elixir
 arr = ExArray.new(3) |> ExArray.set(1, "Hello")
 
 ExArray.to_list(arr)
-#=> [nil, "5", nil]
+#=> [nil, "Hello", nil]
 
 ExArray.sparse_to_list(arr)
 #=> ["Hello"]
@@ -84,6 +84,103 @@ ExArray.to_orddict(arr)
 
 ExArray.sparse_to_orddict(arr)
 #=> [{1, "Hello"}]
+```
+
+You can also build an `ExArray` from existing data, or unwrap it back to an
+Erlang `:array`:
+
+```elixir
+ExArray.from_list(["a", "b", "c"])
+#=> #ExArray<["a", "b", "c"], fixed=false, default=nil>
+
+ExArray.from_orddict([{0, "a"}, {2, "c"}])
+#=> #ExArray<["a", nil, "c"], fixed=false, default=nil>
+
+arr = ExArray.from_list([1, 2, 3])
+ExArray.to_erlang_array(arr)
+#=> {:array, 3, 10, nil, {1, 2, 3, nil, nil, nil, nil, nil, nil, nil}}
+```
+
+### Iteration
+
+`ExArray` exposes the same `map`/`foldl`/`foldr` helpers as Erlang's `:array`,
+plus their `sparse_*` counterparts that skip default-valued entries:
+
+```elixir
+arr = ExArray.new(size: 4) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+
+ExArray.map(arr, fn index, value -> {index, value} end)
+#=> #ExArray<[{0, nil}, {1, "1"}, {2, nil}, {3, "3"}], fixed=true, default=nil>
+
+ExArray.sparse_foldl(arr, [], fn index, value, acc -> [{index, value} | acc] end)
+#=> [{3, "3"}, {1, "1"}]
+```
+
+### Resizing and fixedness
+
+```elixir
+arr = ExArray.new(5) |> ExArray.set(1, "1")
+
+arr |> ExArray.relax() |> ExArray.is_fix()
+#=> false
+
+arr |> ExArray.resize() |> ExArray.size()
+#=> 2
+
+ExArray.equal?(ExArray.from_list([1, 2]), ExArray.from_list([1, 2]))
+#=> true
+```
+
+## Protocols
+
+`ExArray` implements the `Access`, `Enumerable`, `Collectable`, and `Inspect`
+protocols, so it works with Elixir's standard tooling.
+
+### Access
+
+```elixir
+arr = ExArray.from_list(["a", "b", "c"])
+
+arr[1]
+#=> "b"
+
+get_in(arr, [0])
+#=> "a"
+
+{previous, arr} = pop_in(arr, [1])
+#=> {"b", #ExArray<["a", nil, "c"], fixed=false, default=nil>}
+
+update_in(arr, [0], &String.upcase/1)
+#=> #ExArray<["A", nil, "c"], fixed=false, default=nil>
+```
+
+`Access.fetch/2` returns `:error` when the slot still holds the array's
+default value; explicitly stored values (including `nil` and `false`) are
+returned as `{:ok, value}`.
+
+### Enumerable
+
+```elixir
+arr = ExArray.from_list([1, 2, 3, 4, 5])
+
+Enum.count(arr)
+#=> 5
+
+Enum.map(arr, &(&1 * 2))
+#=> [2, 4, 6, 8, 10]
+
+Enum.slice(arr, 1..3)
+#=> [2, 3, 4]
+```
+
+### Collectable
+
+`Enum.into/3` appends new values **after** the existing entries, preserving the
+target array's `default` and `fixed` settings:
+
+```elixir
+Enum.into([4, 5], ExArray.from_list([1, 2, 3]))
+#=> #ExArray<[1, 2, 3, 4, 5], fixed=false, default=nil>
 ```
 
 ## Acknowledgments
