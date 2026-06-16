@@ -1,36 +1,39 @@
 defmodule ExArray.MixProject do
   use Mix.Project
 
+  @name :ex_array
+  @source_url "https://github.com/GRoguelon/ex_array"
+  @version "1.0.0"
+
   def project do
     [
-      app: :ex_array,
-      version: "1.0.0",
+      app: @name,
+      version: @version,
       elixir: "~> 1.14",
-      build_embedded: Mix.env() == :prod,
-      start_permanent: Mix.env() == :prod,
+      consolidate_protocols: Mix.env() != :test,
       package: package(),
       dialyzer: dialyzer(),
       deps: deps(),
       docs: docs(),
       description: "A wrapper module for Erlang's array.",
-      source_url: "https://github.com/groguelon/ex_array"
+      source_url: @source_url
     ]
   end
 
   # Run "mix help compile.app" to learn about applications.
   def application do
-    [
-      extra_applications: [:logger]
-    ]
+    []
   end
 
   defp package do
     [
-      # These are the default files included in the package
-      files: ~w[lib .formatter.exs mix.exs README* LICENSE*],
+      name: @name,
+      files: ~w[lib .formatter.exs mix.exs README.md CHANGELOG.md LICENSE],
+      maintainers: ["Geoffrey Roguelon"],
       licenses: ["MIT"],
       links: %{
-        "Github" => "https://github.com/groguelon/ex_array"
+        "GitHub" => @source_url,
+        "Changelog" => "https://ex-array.hexdocs.pm/changelog.html"
       }
     ]
   end
@@ -45,7 +48,7 @@ defmodule ExArray.MixProject do
     [
       formatters: ["html"],
       main: "readme",
-      extras: ["README.md", "LICENSE"]
+      extras: ["README.md", "CHANGELOG.md", "LICENSE"]
     ]
   end
 
