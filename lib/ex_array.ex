@@ -43,18 +43,10 @@ defmodule ExArray do
   @typedoc """
   Represents an `:array` from Erlang. The representation is not documented and is subject to change without notice.
   """
-  @opaque array() :: {:array, size(), max(), default :: term(), elements :: elements(term())}
+  @type array() :: :array.array()
 
   @typedoc "Represents a keyword list where the index is the key and the value is the element."
-  @opaque orddict() :: [{index :: index(), value :: term()}]
-
-  @typep elements(t) :: non_neg_integer() | element_tuple(t) | nil
-
-  @typep element_tuple(t) ::
-           {t, t, t, t, t, t, t, t, t, t}
-           | {element_tuple(t), element_tuple(t), element_tuple(t), element_tuple(t), element_tuple(t),
-              element_tuple(t), element_tuple(t), element_tuple(t), element_tuple(t), element_tuple(t),
-              non_neg_integer()}
+  @type orddict() :: [{index :: index(), value :: term()}]
 
   ## Behaviours
 
