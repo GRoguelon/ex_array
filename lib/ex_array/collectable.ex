@@ -3,17 +3,19 @@ defimpl Collectable, for: ExArray do
 
   @spec into(@for.t()) :: {initial_acc :: term(), collector :: (term(), @protocol.command() -> @protocol.t() | term())}
   def into(original) do
+    initial = {@for.size(original), original}
+
     collector = fn
-      list, {:cont, value} ->
-        [value | list]
+      {index, arr}, {:cont, value} ->
+        {index + 1, @for.set(arr, index, value)}
 
-      list, :done ->
-        @for.from_list(@for.to_list(original) ++ :lists.reverse(list))
+      {_index, arr}, :done ->
+        arr
 
-      _list, :halt ->
+      _acc, :halt ->
         :ok
     end
 
-    {[], collector}
+    {initial, collector}
   end
 end

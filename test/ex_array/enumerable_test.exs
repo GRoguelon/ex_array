@@ -66,5 +66,13 @@ defmodule ExArray.EnumerableTest do
 
       assert Enum.slice(ex_array, 1..3) == ["1", nil, "3"]
     end
+
+    test "supports start/length form" do
+      ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
+
+      assert Enum.slice(ex_array, 0, 2) == [nil, "1"]
+      assert Enum.slice(ex_array, 2, 3) == [nil, "3", nil]
+      assert Enum.slice(ex_array, 4, 5) == [nil]
+    end
   end
 end

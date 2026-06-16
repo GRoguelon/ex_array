@@ -21,6 +21,14 @@ defmodule ExArray.AccessTest do
         Access.fetch(ex_array, 100)
       end
     end
+
+    test "with stored falsy value returns ok" do
+      ex_array = ExArray.new(size: 3, default: :unset) |> ExArray.set(0, false) |> ExArray.set(1, nil)
+
+      assert Access.fetch(ex_array, 0) == {:ok, false}
+      assert Access.fetch(ex_array, 1) == {:ok, nil}
+      assert Access.fetch(ex_array, 2) == :error
+    end
   end
 
   describe "get_and_update/2" do
@@ -76,6 +84,18 @@ defmodule ExArray.AccessTest do
       assert_raise ArgumentError, fn ->
         Access.pop(ex_array, 100)
       end
+    end
+
+    test "with stored falsy value pops the value and resets the slot" do
+      ex_array = ExArray.new(size: 3, default: :unset) |> ExArray.set(0, false) |> ExArray.set(1, nil)
+      {value, ex_array} = Access.pop(ex_array, 0)
+
+      assert value == false
+      assert ExArray.get(ex_array, 0) == :unset
+
+      {value, ex_array} = Access.pop(ex_array, 1)
+      assert is_nil(value)
+      assert ExArray.get(ex_array, 1) == :unset
     end
   end
 end

@@ -16,10 +16,13 @@ defimpl Enumerable, for: ExArray do
     Enumerable.reduce(@for.to_list(arr), acc, fun)
   end
 
-  @spec slice(@for.t()) :: {:ok, size :: non_neg_integer(), Enumerable.to_list_fun()}
+  @spec slice(@for.t()) :: {:ok, size :: non_neg_integer(), (non_neg_integer(), pos_integer() -> list())}
   def slice(arr) do
     size = @for.size(arr)
 
-    {:ok, size, &@for.to_list/1}
+    {:ok, size,
+     fn start, length ->
+       Enum.map(start..(start + length - 1), &@for.get(arr, &1))
+     end}
   end
 end

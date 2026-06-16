@@ -63,10 +63,12 @@ defmodule ExArray do
   @impl Access
   @spec fetch(t(), index()) :: :error | {:ok, any}
   def fetch(%__MODULE__{} = ex_arr, index) do
-    if value = get(ex_arr, index) do
-      {:ok, value}
-    else
+    value = get(ex_arr, index)
+
+    if value === default(ex_arr) do
       :error
+    else
+      {:ok, value}
     end
   end
 
@@ -81,10 +83,12 @@ defmodule ExArray do
   @impl Access
   @spec pop(t(), index()) :: {any(), t()}
   def pop(%__MODULE__{} = ex_arr, index) do
-    if value = get(ex_arr, index) do
-      {value, reset(ex_arr, index)}
+    value = get(ex_arr, index)
+
+    if value === default(ex_arr) do
+      {value, ex_arr}
     else
-      {nil, ex_arr}
+      {value, reset(ex_arr, index)}
     end
   end
 
@@ -279,11 +283,11 @@ defmodule ExArray do
   """
   @spec from_erlang_array(array()) :: t()
   def from_erlang_array(erl_array) do
-    unless :array.is_array(erl_array) do
+    if :array.is_array(erl_array) do
+      %__MODULE__{arr: erl_array}
+    else
       raise ArgumentError
     end
-
-    %__MODULE__{arr: erl_array}
   end
 
   @doc """
