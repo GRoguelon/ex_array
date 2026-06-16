@@ -16,13 +16,32 @@ defimpl Enumerable, for: ExArray do
     Enumerable.reduce(@for.to_list(arr), acc, fun)
   end
 
-  @spec slice(@for.t()) :: {:ok, size :: non_neg_integer(), (non_neg_integer(), pos_integer() -> list())}
-  def slice(arr) do
-    size = @for.size(arr)
+  if Version.match?(System.version(), ">= 1.18.0") do
+    # Elixir 1.18+ deprecated the 2-arity slicing_fun. Use the 3-arity form
+    # (introduced in 1.16) which accepts a step parameter.
+    @spec slice(@for.t()) ::
+            {:ok, size :: non_neg_integer(),
+             (non_neg_integer(), pos_integer(), pos_integer() -> list())}
+    def slice(arr) do
+      size = @for.size(arr)
 
-    {:ok, size,
-     fn start, length ->
-       Enum.map(start..(start + length - 1), &@for.get(arr, &1))
-     end}
+      {:ok, size,
+       fn start, length, step ->
+         Enum.map(start..(start + (length - 1) * step)//step, &@for.get(arr, &1))
+       end}
+    end
+  else
+    # Elixir 1.14 / 1.15 don't support the 3-arity form. Use the 2-arity
+    # slicing_fun, which is not deprecated on these versions.
+    @spec slice(@for.t()) ::
+            {:ok, size :: non_neg_integer(), (non_neg_integer(), pos_integer() -> list())}
+    def slice(arr) do
+      size = @for.size(arr)
+
+      {:ok, size,
+       fn start, length ->
+         Enum.map(start..(start + length - 1), &@for.get(arr, &1))
+       end}
+    end
   end
 end

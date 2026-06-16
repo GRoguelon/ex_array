@@ -74,5 +74,13 @@ defmodule ExArray.EnumerableTest do
       assert Enum.slice(ex_array, 2, 3) == [nil, "3", nil]
       assert Enum.slice(ex_array, 4, 5) == [nil]
     end
+
+    test "supports stepped ranges" do
+      ex_array = ExArray.from_list([:a, :b, :c, :d, :e, :f])
+
+      assert Enum.slice(ex_array, 0..5//2) == [:a, :c, :e]
+      assert Enum.slice(ex_array, 1..5//2) == [:b, :d, :f]
+      assert Enum.slice(ex_array, 0..5//3) == [:a, :d]
+    end
   end
 end
