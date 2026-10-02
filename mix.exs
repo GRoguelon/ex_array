@@ -33,7 +33,7 @@ defmodule ExArray.MixProject do
       licenses: ["MIT"],
       links: %{
         "GitHub" => @source_url,
-        "Changelog" => "https://ex-array.hexdocs.pm/changelog.html"
+        "Changelog" => "https://ex-array.hexdocs.pm/#{@version}/changelog.html"
       }
     ]
   end
