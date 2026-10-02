@@ -3,7 +3,7 @@ defmodule ExArray.MixProject do
 
   @name :ex_array
   @source_url "https://github.com/GRoguelon/ex_array"
-  @version "1.0.0"
+  @version "2.0.0"
 
   def project do
     [
@@ -28,7 +28,7 @@ defmodule ExArray.MixProject do
   defp package do
     [
       name: @name,
-      files: ~w[lib .formatter.exs mix.exs README.md CHANGELOG.md LICENSE],
+      files: ~w[lib .formatter.exs mix.exs README.md CHANGELOG.md UPGRADING.md LICENSE],
       maintainers: ["Geoffrey Roguelon"],
       licenses: ["MIT"],
       links: %{
@@ -48,7 +48,9 @@ defmodule ExArray.MixProject do
     [
       formatters: ["html"],
       main: "readme",
-      extras: ["README.md", "CHANGELOG.md", "LICENSE"]
+      extras: ["README.md", "CHANGELOG.md", "UPGRADING.md", "LICENSE"],
+      # Past releases reference functions that have since been removed.
+      skip_undefined_reference_warnings_on: ["CHANGELOG.md"]
     ]
   end
 

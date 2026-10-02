@@ -52,36 +52,46 @@ defmodule ExArray do
 
   @behaviour Access
 
+  # An index exists if it is within the bounds of the array, whatever the value of its entry
+  # (`:array` cannot distinguish an entry explicitly set to the default value from an unset
+  # one). Out-of-bounds indexes behave like missing keys in maps and never raise.
   @impl Access
-  @spec fetch(t(), index()) :: :error | {:ok, any}
-  def fetch(%__MODULE__{} = ex_arr, index) do
-    value = get(ex_arr, index)
-
-    if value === default(ex_arr) do
+  @spec fetch(t(), term()) :: :error | {:ok, value()}
+  def fetch(%__MODULE__{arr: arr}, index) do
+    if in_bounds?(arr, index) do
+      {:ok, :array.get(index, arr)}
+    else
       :error
-    else
-      {:ok, value}
     end
   end
 
   @impl Access
-  @spec get_and_update(t(), index(), (any() -> {any(), any()})) :: {any(), t()}
+  @spec get_and_update(t(), index(), (value() | nil -> {any(), value()} | :pop)) :: {any(), t()}
   def get_and_update(%__MODULE__{} = ex_arr, index, fun) when is_function(fun, 1) do
-    {get, update} = ex_arr |> get(index) |> fun.()
+    current =
+      case fetch(ex_arr, index) do
+        {:ok, value} -> value
+        :error -> nil
+      end
 
-    {get, set(ex_arr, index, update)}
+    case fun.(current) do
+      {get, update} -> {get, set(ex_arr, index, update)}
+      :pop -> pop(ex_arr, index)
+    end
   end
 
   @impl Access
-  @spec pop(t(), index()) :: {any(), t()}
-  def pop(%__MODULE__{} = ex_arr, index) do
-    value = get(ex_arr, index)
-
-    if value === default(ex_arr) do
-      {value, ex_arr}
+  @spec pop(t(), term()) :: {value() | nil, t()}
+  def pop(%__MODULE__{arr: arr} = ex_arr, index) do
+    if in_bounds?(arr, index) do
+      {:array.get(index, arr), reset(ex_arr, index)}
     else
-      {value, reset(ex_arr, index)}
+      {nil, ex_arr}
     end
+  end
+
+  defp in_bounds?(arr, index) do
+    is_integer(index) and index >= 0 and index < :array.size(arr)
   end
 
   ## Public functions
@@ -132,35 +142,53 @@ defmodule ExArray do
       #ExArray<[0, 0, 0, 0, 0], fixed=true, default=0>
   """
   @spec new(options()) :: t()
-  def new(size) when is_integer(size) do
-    new(size: size, default: @default)
-  end
-
   def new(options) when is_list(options) do
     options = Keyword.put_new(options, :default, @default)
 
     %__MODULE__{arr: :array.new(options)}
   end
 
+  def new(option) do
+    new([option])
+  end
+
   @doc """
-  Returns `true` if `arr` appears to be an array, otherwise `false`.
-  Note that the check is only shallow; there is no guarantee that `arr` is a well-formed array
+  Returns `true` if `term` appears to be an array, otherwise `false`.
+  Note that the check is only shallow; there is no guarantee that `term` is a well-formed array
   representation even if this function returns `true`.
+
+  ## Examples
+
+      iex> #{@modulestr}.array?(#{@modulestr}.new())
+      true
+
+      iex> #{@modulestr}.array?([])
+      false
   """
-  @spec is_array(any()) :: boolean()
-  def is_array(%__MODULE__{arr: arr}) do
+  @doc since: "2.0.0"
+  @spec array?(any()) :: boolean()
+  def array?(%__MODULE__{arr: arr}) do
     :array.is_array(arr)
   end
 
-  def is_array(_any) do
+  def array?(_term) do
     false
   end
 
   @doc """
   Checks if the array has fixed size. Returns `true` if the array is fixed, otherwise `false`.
+
+  ## Examples
+
+      iex> #{@modulestr}.fixed?(#{@modulestr}.new(5))
+      true
+
+      iex> #{@modulestr}.fixed?(#{@modulestr}.new())
+      false
   """
-  @spec is_fix(t()) :: boolean()
-  def is_fix(%__MODULE__{arr: arr}) do
+  @doc since: "2.0.0"
+  @spec fixed?(t()) :: boolean()
+  def fixed?(%__MODULE__{arr: arr}) do
     :array.is_fix(arr)
   end
 
@@ -195,6 +223,8 @@ defmodule ExArray do
   @doc """
   Gets the value of entry `index`. If `index` is not a nonnegative integer, or if the array has
   fixed size and `index` is larger than the maximum index, the call raises `ArgumentError`.
+  If the array is extendible and `index` is larger than the maximum index, the default value
+  is returned.
   """
   @spec get(t(), index()) :: value()
   def get(%__MODULE__{arr: arr}, index) do
@@ -212,11 +242,30 @@ defmodule ExArray do
   end
 
   @doc """
-  Check if two arrays are equal using ===.
+  Checks if two arrays are equal: they must have the same size, the same default value, the
+  same fixedness and strictly equal (`===`) entries.
+
+  Prefer this function over `==/2`, which compares the internal representation of the arrays:
+  two arrays holding the same entries can be represented differently depending on how they
+  were built.
+
+  ## Examples
+
+      iex> #{@modulestr}.equal?(#{@modulestr}.from_list([1, 2]), #{@modulestr}.from_list([1, 2]))
+      true
+
+      iex> #{@modulestr}.equal?(#{@modulestr}.from_list([1, 2]), #{@modulestr}.from_list([1, 2.0]))
+      false
+
+      iex> #{@modulestr}.equal?(#{@modulestr}.from_list([nil], nil), #{@modulestr}.from_list([nil], 0))
+      false
   """
   @spec equal?(t(), t()) :: boolean()
-  def equal?(%__MODULE__{} = struct1, %__MODULE__{} = struct2) do
-    to_list(struct1) === to_list(struct2)
+  def equal?(%__MODULE__{arr: arr1}, %__MODULE__{arr: arr2}) do
+    :array.size(arr1) === :array.size(arr2) and
+      :array.default(arr1) === :array.default(arr2) and
+      :array.is_fix(arr1) === :array.is_fix(arr2) and
+      :array.to_list(arr1) === :array.to_list(arr2)
   end
 
   @doc """
@@ -349,7 +398,7 @@ defmodule ExArray do
   Maps the given function onto each element of the array.
   The elements are visited in order from the lowest index to the highest.
 
-  If `fun` is not a function, the call raises `ArgumentError`.
+  If `fun` is not a function of arity 2, the call raises `FunctionClauseError`.
   """
   @spec map(t(), (index(), value() -> any())) :: t()
   def map(%__MODULE__{arr: arr}, fun) when is_function(fun, 2) do
@@ -360,7 +409,7 @@ defmodule ExArray do
   Maps the given function onto each element of the array, skipping default-valued entries.
   The elements are visited in order from the lowest index to the highest.
 
-  If `fun` is not a function, the call raises `ArgumentError`.
+  If `fun` is not a function of arity 2, the call raises `FunctionClauseError`.
   """
   @spec sparse_map(t(), (index(), value() -> any())) :: t()
   def sparse_map(%__MODULE__{arr: arr}, fun) when is_function(fun, 2) do
@@ -371,7 +420,7 @@ defmodule ExArray do
   Folds the elements of the array using the given function and initial accumulator value.
   The elements are visited in order from the lowest index to the highest.
 
-  If `fun` is not a function, the call raises `ArgumentError`.
+  If `fun` is not a function of arity 3, the call raises `FunctionClauseError`.
   """
   @spec foldl(t(), acc, (index(), value(), acc -> acc)) :: acc when acc: var
   def foldl(%__MODULE__{arr: arr}, acc, fun) when is_function(fun, 3) do
@@ -383,7 +432,7 @@ defmodule ExArray do
   skipping default-valued entries.
   The elements are visited in order from the lowest index to the highest.
 
-  If `fun` is not a function, the call raises `ArgumentError`.
+  If `fun` is not a function of arity 3, the call raises `FunctionClauseError`.
   """
   @spec sparse_foldl(t(), acc, (index(), value(), acc -> acc)) :: acc when acc: var
   def sparse_foldl(%__MODULE__{arr: arr}, acc, fun) when is_function(fun, 3) do
@@ -394,7 +443,7 @@ defmodule ExArray do
   Folds the elements of the array right-to-left using the given function and initial accumulator value.
   The elements are visited in order from the highest index to the lowest.
 
-  If `fun` is not a function, the call raises `ArgumentError`.
+  If `fun` is not a function of arity 3, the call raises `FunctionClauseError`.
   """
   @spec foldr(t(), acc, (index(), value(), acc -> acc)) :: acc when acc: var
   def foldr(%__MODULE__{arr: arr}, acc, fun) when is_function(fun, 3) do
@@ -406,7 +455,7 @@ defmodule ExArray do
   skipping default-valued entries.
   The elements are visited in order from the highest index to the lowest.
 
-  If `fun` is not a function, the call raises `ArgumentError`.
+  If `fun` is not a function of arity 3, the call raises `FunctionClauseError`.
   """
   @spec sparse_foldr(t(), acc, (index(), value(), acc -> acc)) :: acc when acc: var
   def sparse_foldr(%__MODULE__{arr: arr}, acc, fun) when is_function(fun, 3) do

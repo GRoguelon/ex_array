@@ -1,12 +1,18 @@
 defmodule ExArrayTest do
   use ExUnit.Case, async: true
 
+  doctest ExArray
+
+  # Hides the type of the value from the type checker (Elixir v1.18+), which would otherwise
+  # warn about the calls below that are expected to fail.
+  defp not_an_ex_array, do: Enum.random([[], %{}])
+
   describe "new/0" do
     test "returns an ExArray struct with default options" do
       subject = ExArray.new()
 
       assert %ExArray{} = subject
-      refute ExArray.is_fix(subject)
+      refute ExArray.fixed?(subject)
       assert ExArray.size(subject) == 0
       assert ExArray.default(subject) |> is_nil()
     end
@@ -17,7 +23,7 @@ defmodule ExArrayTest do
       subject = ExArray.new(5)
 
       assert %ExArray{} = subject
-      assert ExArray.is_fix(subject)
+      assert ExArray.fixed?(subject)
       assert ExArray.size(subject) == 5
       assert ExArray.default(subject) |> is_nil()
     end
@@ -26,7 +32,7 @@ defmodule ExArrayTest do
       subject = ExArray.new(size: 5)
 
       assert %ExArray{} = subject
-      assert ExArray.is_fix(subject)
+      assert ExArray.fixed?(subject)
       assert ExArray.size(subject) == 5
       assert ExArray.default(subject) |> is_nil()
     end
@@ -35,7 +41,7 @@ defmodule ExArrayTest do
       subject = ExArray.new(fixed: true)
 
       assert %ExArray{} = subject
-      assert ExArray.is_fix(subject)
+      assert ExArray.fixed?(subject)
       assert ExArray.size(subject) == 0
       assert ExArray.default(subject) |> is_nil()
     end
@@ -44,7 +50,7 @@ defmodule ExArrayTest do
       subject = ExArray.new(default: 42)
 
       assert %ExArray{} = subject
-      refute ExArray.is_fix(subject)
+      refute ExArray.fixed?(subject)
       assert ExArray.size(subject) == 0
       assert ExArray.default(subject) == 42
     end
@@ -53,7 +59,7 @@ defmodule ExArrayTest do
       subject = ExArray.new(size: 5, default: 42, fixed: true)
 
       assert %ExArray{} = subject
-      assert ExArray.is_fix(subject)
+      assert ExArray.fixed?(subject)
       assert ExArray.size(subject) == 5
       assert ExArray.default(subject) == 42
     end
@@ -69,50 +75,56 @@ defmodule ExArrayTest do
         ExArray.new(size: 5, default: 42, unkwnon: true)
       end
     end
+
+    test "with a single non-list option" do
+      assert ExArray.fixed?(ExArray.new(:fixed))
+      assert ExArray.default(ExArray.new({:default, 0})) == 0
+      assert ExArray.size(ExArray.new({:size, 3})) == 3
+    end
   end
 
-  describe "is_array/1" do
+  describe "array?/1" do
     test "with ExArray returns a boolean" do
       subject = ExArray.new()
 
-      assert ExArray.is_array(subject)
+      assert ExArray.array?(subject)
     end
 
     test "with List returns a boolean" do
       subject = []
 
-      refute ExArray.is_array(subject)
+      refute ExArray.array?(subject)
     end
 
     test "with Map returns a boolean" do
       subject = []
 
-      refute ExArray.is_array(subject)
+      refute ExArray.array?(subject)
     end
 
     test "with String returns a boolean" do
       subject = []
 
-      refute ExArray.is_array(subject)
+      refute ExArray.array?(subject)
     end
   end
 
-  describe "is_fix/1" do
+  describe "fixed?/1" do
     test "with fixed ExArray returns a boolean" do
       subject = ExArray.new(fixed: false)
 
-      refute ExArray.is_fix(subject)
+      refute ExArray.fixed?(subject)
     end
 
     test "with non-fixed ExArray returns a boolean" do
       subject = ExArray.new(fixed: true)
 
-      assert ExArray.is_fix(subject)
+      assert ExArray.fixed?(subject)
     end
 
     test "with non-ExArray returns an error" do
       assert_raise FunctionClauseError, fn ->
-        ExArray.is_fix(%{})
+        ExArray.fixed?(not_an_ex_array())
       end
     end
   end
@@ -132,7 +144,7 @@ defmodule ExArrayTest do
 
     test "with non-ExArray returns an error" do
       assert_raise FunctionClauseError, fn ->
-        ExArray.size([])
+        ExArray.size(not_an_ex_array())
       end
     end
   end
@@ -152,7 +164,7 @@ defmodule ExArrayTest do
 
     test "with non-ExArray returns an error" do
       assert_raise FunctionClauseError, fn ->
-        ExArray.sparse_size([])
+        ExArray.sparse_size(not_an_ex_array())
       end
     end
   end
@@ -172,7 +184,7 @@ defmodule ExArrayTest do
 
     test "with non-ExArray returns an error" do
       assert_raise FunctionClauseError, fn ->
-        ExArray.default([])
+        ExArray.default(not_an_ex_array())
       end
     end
   end
@@ -206,7 +218,7 @@ defmodule ExArrayTest do
 
     test "with non-ExArray returns an error" do
       assert_raise FunctionClauseError, fn ->
-        ExArray.get([], 100)
+        ExArray.get(not_an_ex_array(), 100)
       end
     end
   end
@@ -239,7 +251,7 @@ defmodule ExArrayTest do
 
     test "with non-ExArray returns an error" do
       assert_raise FunctionClauseError, fn ->
-        ExArray.get([], 100)
+        ExArray.set(not_an_ex_array(), 100, :value)
       end
     end
   end
@@ -252,11 +264,34 @@ defmodule ExArrayTest do
       assert ExArray.equal?(ex_array1, ex_array2)
     end
 
-    test "returns true if different lists" do
+    test "returns false if different lists" do
       ex_array1 = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
       ex_array2 = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "4")
 
       refute ExArray.equal?(ex_array1, ex_array2)
+    end
+
+    test "returns true for equal arrays built differently" do
+      ex_array1 = ExArray.from_list([1, 2, 3])
+      ex_array2 = ExArray.from_list([1, 2, 3]) |> ExArray.set(500, 1) |> ExArray.resize(3)
+
+      assert ExArray.equal?(ex_array1, ex_array2)
+    end
+
+    test "returns false if different sizes" do
+      refute ExArray.equal?(ExArray.from_list([1]), ExArray.from_list([1, nil]))
+    end
+
+    test "returns false if different default values" do
+      refute ExArray.equal?(ExArray.from_list([nil], nil), ExArray.from_list([nil], 0))
+    end
+
+    test "returns false if different fixedness" do
+      refute ExArray.equal?(ExArray.new(1), ExArray.from_list([nil]))
+    end
+
+    test "compares entries strictly" do
+      refute ExArray.equal?(ExArray.from_list([1]), ExArray.from_list([1.0]))
     end
   end
 
@@ -264,17 +299,17 @@ defmodule ExArrayTest do
     test "returns an ExArray" do
       subject = ExArray.new() |> ExArray.set(0, "0")
 
-      refute ExArray.is_fix(subject)
+      refute ExArray.fixed?(subject)
       assert %ExArray{} = subject = ExArray.fix(subject)
-      assert ExArray.is_fix(subject)
+      assert ExArray.fixed?(subject)
     end
 
     test "with fixed ExArray returns an ExArray" do
       subject = ExArray.new(fixed: true, size: 1) |> ExArray.set(0, "0")
 
-      assert ExArray.is_fix(subject)
+      assert ExArray.fixed?(subject)
       assert %ExArray{} = subject = ExArray.fix(subject)
-      assert ExArray.is_fix(subject)
+      assert ExArray.fixed?(subject)
     end
   end
 
@@ -282,17 +317,17 @@ defmodule ExArrayTest do
     test "returns an ExArray" do
       subject = ExArray.new() |> ExArray.set(0, "0")
 
-      refute ExArray.is_fix(subject)
+      refute ExArray.fixed?(subject)
       assert %ExArray{} = subject = ExArray.relax(subject)
-      refute ExArray.is_fix(subject)
+      refute ExArray.fixed?(subject)
     end
 
     test "with fixed ExArray returns an ExArray" do
       subject = ExArray.new(fixed: true, size: 1) |> ExArray.set(0, "0")
 
-      assert ExArray.is_fix(subject)
+      assert ExArray.fixed?(subject)
       assert %ExArray{} = subject = ExArray.relax(subject)
-      refute ExArray.is_fix(subject)
+      refute ExArray.fixed?(subject)
     end
   end
 
@@ -339,7 +374,7 @@ defmodule ExArrayTest do
       erl_array = :array.from_list(["0", nil, "2", nil, "4"])
       ex_array = ExArray.from_erlang_array(erl_array)
 
-      assert ExArray.is_array(ex_array)
+      assert ExArray.array?(ex_array)
       assert ExArray.to_list(ex_array) == ["0", nil, "2", nil, "4"]
     end
   end
@@ -349,7 +384,7 @@ defmodule ExArrayTest do
       list = ["0", nil, "2", nil, "4"]
       ex_array = ExArray.from_list(list)
 
-      assert ExArray.is_array(ex_array)
+      assert ExArray.array?(ex_array)
       assert ExArray.to_list(ex_array) == ["0", nil, "2", nil, "4"]
     end
   end
@@ -359,7 +394,7 @@ defmodule ExArrayTest do
       orddict = [{0, "0"}, {2, "2"}, {4, "4"}]
       ex_array = ExArray.from_orddict(orddict)
 
-      assert ExArray.is_array(ex_array)
+      assert ExArray.array?(ex_array)
       assert ExArray.to_list(ex_array) == ["0", nil, "2", nil, "4"]
     end
   end
@@ -417,7 +452,7 @@ defmodule ExArrayTest do
       ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
       subject = ExArray.map(ex_array, fn index, value -> {index, value} end)
 
-      assert ExArray.is_array(subject)
+      assert ExArray.array?(subject)
       assert ExArray.to_list(subject) == [{0, nil}, {1, "1"}, {2, nil}, {3, "3"}, {4, nil}]
     end
   end
@@ -427,7 +462,7 @@ defmodule ExArrayTest do
       ex_array = ExArray.new(size: 5) |> ExArray.set(1, "1") |> ExArray.set(3, "3")
       subject = ExArray.sparse_map(ex_array, fn index, value -> {index, value} end)
 
-      assert ExArray.is_array(subject)
+      assert ExArray.array?(subject)
       assert ExArray.to_list(subject) == [nil, {1, "1"}, nil, {3, "3"}, nil]
     end
   end

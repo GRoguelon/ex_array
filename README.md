@@ -2,6 +2,54 @@
 
 A wrapper module for Erlang's array.
 
+## When to use `ExArray` instead of a `List`
+
+Elixir lists are singly linked lists: adding or removing an element at the
+front is cheap, but reaching the element at index `i` means walking the `i`
+elements before it, and updating it means copying them. `ExArray` wraps
+Erlang's [`:array`](https://www.erlang.org/doc/apps/stdlib/array.html), a
+functional tree with a branching factor of 10: reading or updating any index
+only visits a handful of nodes, whatever the size of the array.
+
+Use a **`List`** (the default choice) when you:
+
+- process elements sequentially with `Enum`, `Stream` or recursion and
+  pattern matching;
+- build a collection by prepending elements (`[elem | list]`);
+- work with small collections or data you rarely access by index.
+
+Use an **`ExArray`** when you:
+
+- read or update elements by index in large collections, e.g. dynamic
+  programming tables, grids, buffers or lookup tables;
+- grow a collection by setting indexes beyond its end;
+- store sparse data, where unset entries return a `default` value and
+  `sparse_*` functions skip them;
+- need a fixed-size collection that rejects out-of-bounds writes.
+
+Indicative timings on a 1,000,000-element collection:
+
+| Operation              | `List`  | `ExArray` |
+| ---------------------- | ------- | --------- |
+| Read at middle index   | ~1 ms   | ~60 ns    |
+| Update at middle index | ~19 ms  | ~140 ns   |
+| Append one element     | ~18 ms  | ~720 ns   |
+| Prepend one element    | ~40 ns  | n/a       |
+| Sum all elements       | ~1.8 ms | ~16 ms    |
+| Memory per element     | 16 B    | ~9 B      |
+
+Other options to consider:
+
+- **Tuples** give constant-time reads (`elem/2`), but every update copies the
+  whole tuple: use them for small or read-only collections.
+- **Maps with integer keys** have reads and updates as fast as `ExArray` or
+  faster, but use about three times as much memory. Also, maps with more than
+  32 keys do not keep their keys ordered, and they have no notion of size
+  bounds or default values.
+- **[`:atomics`](https://www.erlang.org/doc/apps/erts/atomics.html)** and
+  **[`:counters`](https://www.erlang.org/doc/apps/erts/counters.html)** provide
+  mutable arrays of integers, shared between processes.
+
 ## Installation
 
 Requires Elixir v1.14+:
@@ -9,7 +57,7 @@ Requires Elixir v1.14+:
 ```elixir
 def deps do
   [
-    {:ex_array, "~> 1.0"}
+    {:ex_array, "~> 2.0"}
   ]
 end
 ```
@@ -121,7 +169,7 @@ ExArray.sparse_foldl(arr, [], fn index, value, acc -> [{index, value} | acc] end
 ```elixir
 arr = ExArray.new(5) |> ExArray.set(1, "1")
 
-arr |> ExArray.relax() |> ExArray.is_fix()
+arr |> ExArray.relax() |> ExArray.fixed?()
 #=> false
 
 arr |> ExArray.resize() |> ExArray.size()
@@ -154,9 +202,24 @@ update_in(arr, [0], &String.upcase/1)
 #=> #ExArray<["A", nil, "c"], fixed=false, default=nil>
 ```
 
-`Access.fetch/2` returns `:error` when the slot still holds the array's
-default value; explicitly stored values (including `nil` and `false`) are
-returned as `{:ok, value}`.
+An index exists when it is within the bounds of the array
+(`0 <= index < ExArray.size(arr)`), whatever the value of its entry: `arr[index]`
+returns the same value as `ExArray.get/2`, including entries holding the
+default value. Indexes out of bounds, negative indexes and non-integer keys
+behave like missing keys in a map: they return `nil` and never raise.
+
+```elixir
+arr = ExArray.from_list([1, 0, 3], 0)
+
+arr[1]
+#=> 0
+
+arr[10]
+#=> nil
+
+Access.fetch(arr, 10)
+#=> :error
+```
 
 ### Enumerable
 
@@ -175,13 +238,20 @@ Enum.slice(arr, 1..3)
 
 ### Collectable
 
-`Enum.into/3` appends new values **after** the existing entries, preserving the
-target array's `default` and `fixed` settings:
+Like lists and bitstrings, `Enum.into/2` and `for` comprehensions with `:into`
+append new values **after** the existing entries, preserving the target array's
+`default` value:
 
 ```elixir
 Enum.into([4, 5], ExArray.from_list([1, 2, 3]))
 #=> #ExArray<[1, 2, 3, 4, 5], fixed=false, default=nil>
+
+for x <- 1..3, into: ExArray.new(default: 0), do: x * 2
+#=> #ExArray<[2, 4, 6], fixed=false, default=0>
 ```
+
+A fixed-size array cannot grow, so collecting any value into it raises an
+`ArgumentError`; call `ExArray.relax/1` first.
 
 ## Acknowledgments
 
